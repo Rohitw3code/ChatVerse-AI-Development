@@ -71,6 +71,18 @@ async def get_chat_history(
     encoded_history = jsonable_encoder(history_dicts)
     return JSONResponse(content=encoded_history)
 
+async def get_credits(provider_id: str):
+    pool = await db.db_manager.get_pool()
+    async with pool.connection() as conn:
+        result = await conn.execute(
+            "SELECT current_credits FROM billing_usage WHERE provider_id = %s",
+            (provider_id,)
+        )
+        row = await result.fetchone()
+        if row:
+            return row['current_credits']
+        return 0
+
 @chat_agent_router.get("/send-message-stream")
 async def send_message_stream(
         message: str,
@@ -84,13 +96,24 @@ async def send_message_stream(
     print("chatid : ",chat_id)
 
     graph = request.app.state.graph
-
     thread_cfg = {
         "configurable": {"thread_id": chat_id, "user_id": provider_id,"query_id":query_id},
         "recursion_limit": 250,
     }
 
     async def event_gen():
+        # Check credits before processing
+        current_credits = await get_credits(provider_id)
+        print("Current credits:", current_credits)
+        if current_credits < 0:
+            error_payload = {
+                "error": "Insufficient credits",
+                "message": "Your current credits are below zero. Please add credits to continue.",
+                "current_credits": current_credits
+            }
+            yield f"event: error\ndata: {Serialization.safe_json_dumps(error_payload)}\n\n"
+            return
+        
         pool = await db.db_manager.get_pool()
 
         async with pool.connection() as conn:
