@@ -65,7 +65,6 @@ origins = [
     "http://localhost:3000",
     "https://7rsfnd7q-8000.inc1.devtunnels.ms",
     "https://7rsfnd7q-5173.inc1.devtunnels.ms",
-    "https://chatverse-eegsdnaqe7e9gjeb.centralindia-01.azurewebsites.net",
 ]
 
 app.add_middleware(
