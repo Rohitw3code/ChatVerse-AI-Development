@@ -37,8 +37,7 @@ class SendGmailInput(BaseModel):
 
 class GmailCount(BaseModel):
     message_count: int = Field(
-        5,
-        description="Number of Gmail messages to fetch. Defaults to 5."
+        5, description="Number of Gmail messages to fetch. Defaults to 5."
     )
 
 
@@ -49,7 +48,6 @@ def verify_gmail_connection(config: RunnableConfig):
     Returns a success message if connected, otherwise indicates that authentication is required.
     """
     user_id = get_user_id(config)
-
 
     print("insta verify pid : ", user_id)
     log_tool_event(
@@ -77,9 +75,7 @@ def verify_gmail_connection(config: RunnableConfig):
         )
         return tool_output
     else:
-        tool_output = (
-            "Gmail account is not connected ask the user to connect or `END`"
-        )
+        tool_output = "Gmail account is not connected ask the user to connect or `END`"
         log_tool_event(
             tool_name="verify_gmail_connection",
             status="failed",
@@ -91,8 +87,7 @@ def verify_gmail_connection(config: RunnableConfig):
 
 
 @tool("fetch_recent_gmail", args_schema=GmailCount)
-def fetch_recent_gmail(
-    message_count: int = 5,config: RunnableConfig=None):
+def fetch_recent_gmail(message_count: int = 5, config: RunnableConfig = None):
     """
     Fetches a specified number of recent Gmail messages, including sender, subject, and a snippet. Defaults to 5 messages.
     """
@@ -132,8 +127,12 @@ def fetch_recent_gmail(
 
         service = build("gmail", "v1", credentials=creds)
 
-        results = service.users().messages().list(
-            userId="me", maxResults=message_count).execute()
+        results = (
+            service.users()
+            .messages()
+            .list(userId="me", maxResults=message_count)
+            .execute()
+        )
         messages = results.get("messages", [])
 
         if not messages:
@@ -141,20 +140,32 @@ def fetch_recent_gmail(
         else:
             tool_output = ""
             for msg in messages:
-                msg_data = service.users().messages().get(
-                    userId="me", id=msg["id"], format="metadata", metadataHeaders=[
-                        "From", "Subject"]).execute()
+                msg_data = (
+                    service.users()
+                    .messages()
+                    .get(
+                        userId="me",
+                        id=msg["id"],
+                        format="metadata",
+                        metadataHeaders=["From", "Subject"],
+                    )
+                    .execute()
+                )
                 headers = msg_data.get("payload", {}).get("headers", [])
                 snippet = msg_data.get("snippet", "")
 
                 sender = next(
                     (h["value"] for h in headers if h["name"] == "From"),
-                    "Unknown Sender")
+                    "Unknown Sender",
+                )
                 subject = next(
                     (h["value"] for h in headers if h["name"] == "Subject"),
-                    "No Subject")
+                    "No Subject",
+                )
 
-                tool_output += f"From: {sender}\nSubject: {subject}\nSnippet: {snippet}\n\n"
+                tool_output += (
+                    f"From: {sender}\nSubject: {subject}\nSnippet: {snippet}\n\n"
+                )
         status = "success"
     else:
         tool_output = "No account connected you need to connect gmail account first"
@@ -171,8 +182,9 @@ def fetch_recent_gmail(
 
 
 @tool("ask_human")
-def ask_human(params: str = Field(...,
-                                  description="What clarification is needed from the user")) -> str:
+def ask_human(
+    params: str = Field(..., description="What clarification is needed from the user")
+) -> str:
     """
     Asks the user for clarification or missing information. Use when details like a recipient's email or message content are needed.
     """
@@ -181,10 +193,7 @@ def ask_human(params: str = Field(...,
 
 
 @tool("gmail_error")
-def gmail_error(
-    params: str = Field(...,
-                        description="error reason")
-) -> str:
+def gmail_error(params: str = Field(..., description="error reason")) -> str:
     """
     Notifies the user of a Gmail connection error and asks them to connect their account.
     if user has not connected the gmail
@@ -209,8 +218,7 @@ class GmailDraft(BaseModel):
 
 @tool("draft_gmail")
 def draft_gmail(
-    params: str = Field(...,
-                        description="The request or instructions for the gmail")
+    params: str = Field(..., description="The request or instructions for the gmail")
 ) -> dict:
     """
     Drafts a professional Gmail from a user's request, generating a subject and a well-structured body.
@@ -237,7 +245,8 @@ def draft_gmail(
         tool_output = llm.with_structured_output(GmailDraft).invoke(
             [
                 SystemMessage(
-                    content=f"You are a professional Gmail writer. {gmail_prompt}"),
+                    content=f"You are a professional Gmail writer. {gmail_prompt}"
+                ),
                 HumanMessage(content=params),
             ]
         )
@@ -321,13 +330,12 @@ def send_gmail(recipient: str, subject: str, body: str) -> str:
 
 class GmailUnreadCount(BaseModel):
     message_count: int = Field(
-        5,
-        description="Number of unread Gmail messages to fetch. Defaults to 5."
+        5, description="Number of unread Gmail messages to fetch. Defaults to 5."
     )
 
 
 @tool("fetch_unread_gmail", args_schema=GmailUnreadCount)
-def fetch_unread_gmail(message_count: int = 5,config: RunnableConfig=None):
+def fetch_unread_gmail(message_count: int = 5, config: RunnableConfig = None):
     """
     Fetches a specified number of unread Gmail messages, providing the sender, subject, and a snippet. Defaults to 5 messages.
     """
@@ -364,11 +372,12 @@ def fetch_unread_gmail(message_count: int = 5,config: RunnableConfig=None):
 
         service = build("gmail", "v1", credentials=creds)
 
-        results = service.users().messages().list(
-            userId="me",
-            labelIds=["UNREAD"],
-            maxResults=message_count
-        ).execute()
+        results = (
+            service.users()
+            .messages()
+            .list(userId="me", labelIds=["UNREAD"], maxResults=message_count)
+            .execute()
+        )
         messages = results.get("messages", [])
 
         if not messages:
@@ -376,25 +385,36 @@ def fetch_unread_gmail(message_count: int = 5,config: RunnableConfig=None):
         else:
             tool_output = ""
             for msg in messages:
-                msg_data = service.users().messages().get(
-                    userId="me",
-                    id=msg["id"],
-                    format="metadata",
-                    metadataHeaders=["From", "Subject"]
-                ).execute()
+                msg_data = (
+                    service.users()
+                    .messages()
+                    .get(
+                        userId="me",
+                        id=msg["id"],
+                        format="metadata",
+                        metadataHeaders=["From", "Subject"],
+                    )
+                    .execute()
+                )
                 headers = msg_data.get("payload", {}).get("headers", [])
                 snippet = msg_data.get("snippet", "")
 
                 sender = next(
                     (h["value"] for h in headers if h["name"] == "From"),
-                    "Unknown Sender")
+                    "Unknown Sender",
+                )
                 subject = next(
                     (h["value"] for h in headers if h["name"] == "Subject"),
-                    "No Subject")
+                    "No Subject",
+                )
 
-                tool_output += f"From: {sender}\nSubject: {subject}\nSnippet: {snippet}\n\n"
+                tool_output += (
+                    f"From: {sender}\nSubject: {subject}\nSnippet: {snippet}\n\n"
+                )
     else:
-        tool_output = "User has not autheticated the gmail ask to firstly connect your gmail"
+        tool_output = (
+            "User has not autheticated the gmail ask to firstly connect your gmail"
+        )
 
     print("unread : ", gmail_data)
 
@@ -415,10 +435,7 @@ gmail_tool_register.add("ask_human", ask_human, "tool")
 gmail_tool_register.add("fetch_recent_gmail", fetch_recent_gmail, "tool")
 gmail_tool_register.add("gmail_error", gmail_error, "tool")
 gmail_tool_register.add("fetch_unread_gmail", fetch_unread_gmail, "tool")
-gmail_tool_register.add(
-    "verify_gmail_connection",
-    verify_gmail_connection,
-    "tool")
+gmail_tool_register.add("verify_gmail_connection", verify_gmail_connection, "tool")
 
 
 gmail_agent_node = make_agent_tool_node(
