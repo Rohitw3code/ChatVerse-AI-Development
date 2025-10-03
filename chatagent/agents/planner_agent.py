@@ -54,8 +54,15 @@ def make_planner_node(
 
     def planner(state: State) -> Command[Literal["task_selection_node"]]:
 
+
+
         with get_openai_callback() as cb:
             message_content = f"info : {planner_prompt} and User Query : {state['input']}"
+
+            print("\n\n", "=" * 20, " Planner Node Invoked ", "=" * 20)
+            print("message_content:", message_content)
+            print("\n\n ")
+
             result: Plan = llm.with_structured_output(Plan).invoke([
                 HumanMessage(content=message_content)
             ])

@@ -13,8 +13,9 @@ from chatagent.model.chat_agent_model import StreamChunk
 from chatagent.agents.supervisor_agent import make_supervisor_node
 from chatagent.agents.planner_agent import make_planner_node
 from chatagent.agents.social_media_manager.gmail.email_agent import gmail_agent_node
-from chatagent.agents.social_media_manager.youtube.youtube_agent import youtube_agent_node
 from chatagent.agents.social_media_manager.instagram.instagram_agent import instagram_agent_node
+# Import the new youtube agent
+from chatagent.agents.social_media_manager.youtube.youtube_agent import youtube_agent_node
 from chatagent.agents.research.research_agent import research_agent_node
 from chatagent.agents.final_node import final_answer_node
 from chatagent.node_registry import NodeRegistry
@@ -25,7 +26,6 @@ from chatagent.agents.task_selection import task_selection_node
 from chatagent.agents.task_dispatcher import task_dispatcher
 from langchain_core.runnables import RunnableConfig
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from typing import Literal, Optional
@@ -50,12 +50,11 @@ available_agents = {
         "Handles ALL tasks related to Gmail or Email. "
     ),
     "social_media_manager_node": (
-        "Handles ONLY Instagram-related tasks (posts, reels, insights, analytics, followers, profile, or messages). "
-        "It can handle youtube channel or youtube related tasks too"
-        "Tasks for Twitter/X, Facebook, WhatsApp, YouTube, and others are currently unsupported and must end with a clear explanation."
+        "Handles tasks related to social media platforms like Instagram and YouTube."
+        "Youtube channel details, video information, etc."
     ),
     "research_agent_node": (
-        "Handles ALL tasks related to searching or finding information from the internet. "
+        "it can only handle tasks related to searching, looking up, or finding information from the internet (e.g., LinkedIn, Google, web)."
     )
 }
 
@@ -80,6 +79,18 @@ instagram_manager_node = make_supervisor_node(
     prompt=PROMPTS.instagram_manager_node
 )
 
+# Create a new YouTube manager
+youtube_register = NodeRegistry()
+youtube_register.add("youtube_agent_node", youtube_agent_node, "agent", "Handles all tasks related to YouTube.")
+
+youtube_manager_node = make_supervisor_node(
+    llm=llm,
+    registry=youtube_register,
+    node_name="youtube_manager_node",
+    goto_end_symbol="social_media_manager_node",
+    prompt=PROMPTS.youtube_manager_node,
+)
+
 
 social_media_manager_registry = NodeRegistry()
 social_media_manager_registry.add(
@@ -88,12 +99,12 @@ social_media_manager_registry.add(
     "supervisor",
     PROMPTS.instagram_manager_node,
 )
-
+# Add the new YouTube manager to the social media supervisor
 social_media_manager_registry.add(
-    "youtube_agent_node",
-    youtube_agent_node, 
-    "agent",
-    "Handle all tasks related to fetching YouTube OR YOUTUBE Channels"
+    "youtube_manager_node",
+    youtube_manager_node,
+    "supervisor",
+    PROMPTS.youtube_manager_node,
 )
 
 
@@ -111,7 +122,6 @@ main_register.add(
     "supervisor",
     PROMPTS.social_media_manager_node,
 )
-
 main_register.add(
     "gmail_agent_node",
     gmail_agent_node,
@@ -141,11 +151,7 @@ graph_builder.add_node("social_media_manager_node", social_media_manager_node)
 graph_builder.add_node("instagram_manager_node", instagram_manager_node)
 graph_builder.add_node("instagram_agent_node", instagram_agent_node)
 graph_builder.add_node("research_agent_node", research_agent_node)
-graph_builder.add_node("youtube_agent_node", youtube_agent_node) 
+# Add the new youtube nodes
+graph_builder.add_node("youtube_manager_node", youtube_manager_node)
+graph_builder.add_node("youtube_agent_node", youtube_agent_node)
 graph_builder.add_edge(START, "inputer_node")
-
-
-# png_data = graph_builder.get_graph().draw_mermaid_png()
-# with open("graph.png", "wb") as f:
-#     f.write(png_data)
-# print("Graph saved to graph1.png")
