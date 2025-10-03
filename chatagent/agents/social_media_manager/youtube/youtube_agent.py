@@ -21,14 +21,14 @@ async def fetch_youtube_channel_details(channel_name: str, config: RunnableConfi
     log_tool_event(
         tool_name="fetch_youtube_channel_details",
         status="started",
-        params={"channel_name": channel_name},
+        params={},
         parent_node="youtube_agent_node",
     )
     data = await get_channel_details(user_id)
     print("\n\n\n\n")
     print("Fetched YouTube Channel Details:", data )
     print("\n\n\n\n")
-    tool_output = ToolOutput(output=data, show=True, type="json")
+    tool_output = ToolOutput(output=data, show=True, type="format")
     log_tool_event(
         tool_name="fetch_youtube_channel_details",
         status="success",
