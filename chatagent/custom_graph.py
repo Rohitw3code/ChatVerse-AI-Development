@@ -13,6 +13,7 @@ from chatagent.model.chat_agent_model import StreamChunk
 from chatagent.agents.supervisor_agent import make_supervisor_node
 from chatagent.agents.planner_agent import make_planner_node
 from chatagent.agents.social_media_manager.gmail.email_agent import gmail_agent_node
+from chatagent.agents.social_media_manager.youtube.youtube_agent import youtube_agent_node
 from chatagent.agents.social_media_manager.instagram.instagram_agent import instagram_agent_node
 from chatagent.agents.research.research_agent import research_agent_node
 from chatagent.agents.final_node import final_answer_node
@@ -50,6 +51,7 @@ available_agents = {
     ),
     "social_media_manager_node": (
         "Handles ONLY Instagram-related tasks (posts, reels, insights, analytics, followers, profile, or messages). "
+        "It can handle youtube related task with some limitations for now only related to fetching channel details. "
         "Tasks for Twitter/X, Facebook, WhatsApp, YouTube, and others are currently unsupported and must end with a clear explanation."
     ),
     "research_agent_node": (
@@ -78,12 +80,20 @@ instagram_manager_node = make_supervisor_node(
     prompt=PROMPTS.instagram_manager_node
 )
 
+
 social_media_manager_registry = NodeRegistry()
 social_media_manager_registry.add(
     "instagram_manager_node",
     instagram_manager_node,
     "supervisor",
     PROMPTS.instagram_manager_node,
+)
+
+social_media_manager_registry.add(
+    "youtube_manager_node",
+    youtube_agent_node,
+    "agent",
+    PROMPTS.youtube_manager_node
 )
 
 social_media_manager_node = make_supervisor_node(
@@ -129,6 +139,7 @@ graph_builder.add_node("social_media_manager_node", social_media_manager_node)
 graph_builder.add_node("instagram_manager_node", instagram_manager_node)
 graph_builder.add_node("instagram_agent_node", instagram_agent_node)
 graph_builder.add_node("research_agent_node", research_agent_node)
+graph_builder.add_node("youtube_agent_node", youtube_agent_node)
 graph_builder.add_edge(START, "inputer_node")
 
 
