@@ -51,7 +51,7 @@ available_agents = {
     ),
     "social_media_manager_node": (
         "Handles ONLY Instagram-related tasks (posts, reels, insights, analytics, followers, profile, or messages). "
-        "It can handle youtube related task with some limitations for now only related to fetching channel details. "
+        "It can handle youtube channel or youtube related tasks too"
         "Tasks for Twitter/X, Facebook, WhatsApp, YouTube, and others are currently unsupported and must end with a clear explanation."
     ),
     "research_agent_node": (
@@ -90,11 +90,12 @@ social_media_manager_registry.add(
 )
 
 social_media_manager_registry.add(
-    "youtube_manager_node",
-    youtube_agent_node,
+    "youtube_agent_node",
+    youtube_agent_node, 
     "agent",
-    PROMPTS.youtube_manager_node
+    "Handle all tasks related to fetching YouTube OR YOUTUBE Channels"
 )
+
 
 social_media_manager_node = make_supervisor_node(
     llm=llm,
@@ -110,6 +111,7 @@ main_register.add(
     "supervisor",
     PROMPTS.social_media_manager_node,
 )
+
 main_register.add(
     "gmail_agent_node",
     gmail_agent_node,
@@ -139,7 +141,7 @@ graph_builder.add_node("social_media_manager_node", social_media_manager_node)
 graph_builder.add_node("instagram_manager_node", instagram_manager_node)
 graph_builder.add_node("instagram_agent_node", instagram_agent_node)
 graph_builder.add_node("research_agent_node", research_agent_node)
-graph_builder.add_node("youtube_agent_node", youtube_agent_node)
+graph_builder.add_node("youtube_agent_node", youtube_agent_node) 
 graph_builder.add_edge(START, "inputer_node")
 
 

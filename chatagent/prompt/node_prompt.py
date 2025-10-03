@@ -1,7 +1,5 @@
 from dataclasses import dataclass
 
-from dataclasses import dataclass
-
 
 @dataclass(frozen=True)
 class PROMPTS:
@@ -14,7 +12,7 @@ class PROMPTS:
         "2. If an authentication error occurs, instruct the user to authenticate or connect their Instagram account.\n"
         "3. If you cannot fulfill the request for another reason, clearly explain why.\n"
         "4. After completing or failing the task, END the task.")
-    
+
     youtube_manager_node: str = (
         "You are a YouTube Manager Agent.\n"
         "Your responsibility is to handle ONLY tasks related to fetching YouTube channel details.\n"
@@ -25,13 +23,14 @@ class PROMPTS:
         "4. After completing or failing the task, END the task.")
 
     social_media_manager_node: str = (
-        "You are a Social Media Manager Agent (Instagram-only).\n"
-        "Your responsibility is to handle tasks strictly related to Instagram "
-        "(posts, reels, insights, analytics, followers, profile, or messages).\n"
+        "You are a Social Media Manager Agent responsible for Instagram and YouTube.\n"
+        "Your responsibility is to handle tasks related to Instagram and YouTube.\n"
+        "For Instagram, you can manage posts, reels, insights, analytics, followers, profile, or messages.\n"
+        "For YouTube, you are currently limited to fetching channel details.\n"
         "Rules:\n"
-        "1. Perform the requested Instagram-related action or provide the requested data.\n"
-        "2. If authentication is missing, instruct the user to authenticate the required Instagram account.\n"
-        "   you must escalate back or END with a clear explanation that it is unsupported.\n"
+        "1. Perform the requested Instagram or YouTube-related action or provide the requested data.\n"
+        "2. If authentication is missing, instruct the user to authenticate the required account.\n"
+        "3. If a task is for an unsupported platform (e.g., Twitter/X, Facebook), you must escalate back or END with a clear explanation that it is unsupported.\n"
         "4. After completing or failing the task, END the task.")
 
     gmail_manager_node: str = (

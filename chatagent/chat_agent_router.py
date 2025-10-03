@@ -184,7 +184,24 @@ async def send_message_stream(
                     db_current_message=None
                 )
 
+                try:
+                    print("\n\n","=="*20)
+                    node_name = next(iter(stream_data.keys()))
+                    print("AGENTIC : messagesss ==> ",stream_data[node_name]['messages'])
+                    print("=="*20,"\n\n")
+                except:
+                    print("\n\n","=ERROR="*20)
+                    node_name = next(iter(stream_data.keys()))
+                    print("node name : ",node_name)
+                    print("data : ",stream_data)
+                    print("=="*20,"\n\n")                
 
+                try:
+                    print_stream_debug(stream_data)
+                except BaseException:
+                    pass
+
+                
                 message_embedding = embedding_model.embed_documents([sc.message])[0]
 
                 try:

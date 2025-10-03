@@ -59,6 +59,8 @@ def make_planner_node(
             result: Plan = llm.with_structured_output(Plan).invoke([
                 HumanMessage(content=message_content)
             ])
+        
+        print(f"📝 Planner generated plan: {result} ")
 
         usages_data = usages(cb)
 
