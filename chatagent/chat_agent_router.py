@@ -104,8 +104,7 @@ async def send_message_stream(
     async def event_gen():
         # Check credits before processing
         current_credits = await get_credits(provider_id)
-        print("Current credits:", current_credits)
-        if current_credits < 0:
+        if current_credits <= 0:
             error_payload = {
                 "error": "Insufficient credits",
                 "message": "Your current credits are below zero. Please add credits to continue.",
@@ -113,6 +112,7 @@ async def send_message_stream(
             }
             yield f"event: error\ndata: {Serialization.safe_json_dumps(error_payload)}\n\n"
             return
+        
         
         pool = await db.db_manager.get_pool()
 
@@ -254,6 +254,8 @@ async def send_message_stream(
                     )
                 except Exception as e:
                     print("⚠️ => Failed to save stream chunk:", e)
+
+                print("increment usage : ", sc.total_cost, sc.total_token, provider_id)
 
                 await db.increment_billing_usage(
                     provider_id=provider_id, chat_tokens=sc.total_token, chat_cost=sc.total_cost)
