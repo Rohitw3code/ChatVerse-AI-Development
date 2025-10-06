@@ -87,7 +87,6 @@ def make_planner_node(node_name="planner_node"):
                 "provider_id": state.get("provider_id"),
                 "next_node": "task_dispatcher_node",
                 "node_type": "planner",
-                "next_node_type": "supervisor",
                 "type": "planner",
                 "next_type": "thinker",
                 "usages": usages_data,

@@ -47,7 +47,6 @@ class MemoryLoaderRouter:
                 "reason": state.get("reason"),
                 "provider_id": state.get("provider_id"),
                 "next_node":"inputer",
-                "next_node_type":"inputer",
                 "node_type":"inputer",
                 "type":"inputer",
                 "next_type":"inputer",
