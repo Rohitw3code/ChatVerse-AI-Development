@@ -10,7 +10,6 @@ CREATE TABLE chat_agent (
     next_node TEXT,
 
     node_type TEXT,
-    next_node_type TEXT,
 
     type TEXT , -- planner , thinker , executor , tool
     next_type TEXT,

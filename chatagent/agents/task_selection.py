@@ -33,7 +33,6 @@ def task_selection_node(node_name="task_selection_node"):
                 "provider_id": state.get("provider_id"),
                 "next_node": "task_dispatcher_node",
                 "node_type": "selection",
-                "next_node_type": "supervisor",
                 "type": "planner",
                 "next_type": "thinker",
                 "usages": {},

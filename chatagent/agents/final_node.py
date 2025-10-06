@@ -46,7 +46,6 @@ class FinalAnswerAgent:
                 "provider_id": state.get("provider_id"),
                 "next_node": "end",
                 "node_type": "end",
-                "next_node_type": "end",
                 "type": "thinker",
                 "next_type": "end",
                 "usages": usages_data,

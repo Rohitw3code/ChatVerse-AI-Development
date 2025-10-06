@@ -66,7 +66,6 @@ class State(TypedDict, total=False):
 
     next_node: str | None
     node_type: NodeType | str | None
-    next_node_type: NodeType | str | None
 
     type: AllowedType | str
     next_type: AllowedType | str | None
@@ -219,7 +218,6 @@ def log_tool_event(
                 ],
                 "next_node": parent_node,
                 "node_type": "tool",
-                "next_node_type": "agent",
                 "type": "tool",
                 "next_type": "executor",
                 "status": status,
@@ -370,7 +368,6 @@ def print_stream_debug(stream_data: dict):
         "node": node_name,
         "node_type": node_data.get("node_type"),
         "next_node": node_data.get("next_node"),
-        "next_node_type": node_data.get("next_node_type"),
         "type": node_data.get("type") or node_data.get("type_", ""),
         "next_type": node_data.get("next_type"),
         "current_message": normalized_messages,
