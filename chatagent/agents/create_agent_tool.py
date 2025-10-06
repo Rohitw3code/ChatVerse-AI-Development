@@ -14,6 +14,7 @@ from langgraph.config import get_stream_writer
 from chatagent.node_registry import NodeRegistry
 from chatagent.model.tool_output import ToolOutput
 from langchain_core.runnables import RunnableConfig
+from langchain_community.callbacks import get_openai_callback
 
 
 callback_handler = OpenAICallbackHandler()
@@ -75,11 +76,12 @@ def make_agent_tool_node(
 
         messages = [SystemMessage(content=system_prompt)] + sanitized_messages
         
-        ai_msg: AIMessage = await llm.bind_tools(members.runs()).ainvoke(
-            messages, config={"callbacks": [callback_handler]}
-        )
+        with get_openai_callback() as cb:
+            ai_msg: AIMessage = await llm.bind_tools(members.runs()).ainvoke(
+                    messages, config={"callbacks": [callback_handler]}
+                )
 
-        usages_data = usages(callback_handler)
+        usages_data = usages(cb)
         tools = members.tools()
         out = None
 

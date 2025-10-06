@@ -9,6 +9,8 @@ from typing import List, Optional, Literal
 from chatagent.node_registry import NodeRegistry
 from langchain_community.callbacks.openai_info import OpenAICallbackHandler
 from langchain_core.runnables import RunnableConfig
+from langchain_community.callbacks import get_openai_callback
+
 
 callback_handler = OpenAICallbackHandler()
 
@@ -159,16 +161,16 @@ def task_dispatcher(
             prompt_context
         ]+state['messages']
 
-        # try:
-        response: Router = llm.with_structured_output(Router).invoke(
-            messages, config={"callbacks": [callback_handler]}
-        )
-        # except Exception as e:
-        #     print(f"[ERROR] LLM failed to produce valid Router output: {e}")
-        #     response = Router(next="END", reason="LLM failed, ending safely.")
+        with get_openai_callback() as cb:
+            try:
+                response: Router = llm.with_structured_output(Router).invoke(
+                    messages
+                )
+            except Exception as e:
+                print(f"[ERROR] LLM failed to produce valid Router output: {e}")
+                response = Router(next="END", reason="LLM failed, ending safely.")
 
-        usages_data = usages(callback_handler)
-        past_step = (current_task, response.reason)
+        usages_data = usages(cb)
 
         if response.next.upper() == "NEXT_TASK":
             return Command(

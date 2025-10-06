@@ -9,9 +9,9 @@ from typing import List, Optional
 from chatagent.node_registry import NodeRegistry
 from langchain_community.callbacks.openai_info import OpenAICallbackHandler
 from langchain_core.runnables import RunnableConfig
+from langchain_community.callbacks import get_openai_callback
 
 callback_handler = OpenAICallbackHandler()
-
 
 def make_supervisor_node(
     llm: BaseChatModel,
@@ -99,19 +99,18 @@ def make_supervisor_node(
         if state.get("messages"):
             messages += state["messages"]
 
-        # try:
-        response: Router = llm.with_structured_output(Router).invoke(
-            messages, config={"callbacks": [callback_handler]}
-        )
-        # except Exception as e:
-        #     print(f"[ERROR] LLM failed to produce valid Router output: {e}")
-        #     response = Router(
-        #         next="BACK",
-        #         reason="LLM failed, escalating back safely.")
+        with get_openai_callback() as cb:
+            try:
+                response: Router = llm.with_structured_output(Router).invoke(
+                    messages
+                )
+            except Exception as e:
+                print(f"[ERROR] LLM failed to produce valid Router output: {e}")
+                response = Router(
+                    next="BACK",
+                    reason="LLM failed, escalating back safely.")
 
-        usages_data = usages(callback_handler)
-        past_step = (state.get('current_task', 'N/A'), response.reason)
-
+        usages_data = usages(cb)
         if response.next.upper() == "NEXT_TASK":
             return Command(
                 goto="task_selection_node",

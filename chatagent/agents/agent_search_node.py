@@ -2,8 +2,11 @@ from typing_extensions import Literal
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import Command
 from chatagent.config.init import llm
-from chatagent.utils import State
+from chatagent.utils import State, usages
+from langchain_community.callbacks import get_openai_callback
 from pydantic import BaseModel, Field
+from langchain_community.callbacks.openai_info import OpenAICallbackHandler
+callback_handler = OpenAICallbackHandler()
 
 
 class AgentCheck(BaseModel):
@@ -24,21 +27,24 @@ def search_agent_node():
         agents = get_relevant_agents(state["input"], top_k=5)
         agent_search_count = state.get("agent_search_count", 0)
 
-        result: AgentCheck = llm.with_structured_output(AgentCheck).invoke(
-            [
-                HumanMessage(
-                    content=f"Available agents & tools:\n"
-                    + "\n".join(
-                        [
-                            f"- {agent['name']}: {agent['description']}"
-                            for agent in agents
-                        ]
-                    )
-                    + f"\n\nUser Query: {state['input']}\n\n"
-                    + "Based on the above available agents and user query, do you think the given agent list is sufficient to handle the user query or not, if you think it is sufficient then return False, if you think it is not sufficient then return True and explain why?"
-                ),
-            ]
-        )
+        with get_openai_callback() as cb:
+            result: AgentCheck = llm.with_structured_output(AgentCheck).invoke(
+                [
+                    HumanMessage(
+                        content=f"Available agents & tools:\n"
+                        + "\n".join(
+                            [
+                                f"- {agent['name']}: {agent['description']}"
+                                for agent in agents
+                            ]
+                        )
+                        + f"\n\nUser Query: {state['input']}\n\n"
+                        + "Based on the above available agents and user query, do you think the given agent list is sufficient to handle the user query or not, if you think it is sufficient then return False, if you think it is not sufficient then return True and explain why?"
+                    ),
+                ]  
+            )
+        usages_data = usages(cb)
+
 
         print(f"Agent Searcher: {result} and Agents: {agents}")
 
@@ -56,7 +62,7 @@ def search_agent_node():
                     "type": "agent_searcher",
                     "next_type": "thinker",
                     "agents": agents,
-                    "usages": state.get("usages", {}),
+                    "usages": usages_data,
                     "status": "success",
                     "current_task": state.get("current_task", "NO TASK"),
                     "tool_output": state.get("tool_output"),
@@ -80,7 +86,7 @@ def search_agent_node():
                     "type": "agent_searcher",
                     "agents": agents,
                     "next_type": "agent_searcher",
-                    "usages": state.get("usages", {}),
+                    "usages": usages_data,
                     "status": "success",
                     "current_task": state.get("current_task", "NO TASK"),
                     "tool_output": state.get("tool_output"),
@@ -103,7 +109,7 @@ def search_agent_node():
                 "type": "agent_searcher",
                 "next_type": "end",
                 "agents": agents,
-                "usages": state.get("usages", {}),
+                "usages": usages_data,
                 "status": "fail",
                 "current_task": state.get("current_task", "NO TASK"),
                 "tool_output": state.get("tool_output"),

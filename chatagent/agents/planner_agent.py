@@ -7,7 +7,9 @@ from chatagent.utils import State, usages
 from langchain_community.callbacks import get_openai_callback
 from pydantic import BaseModel, Field
 from typing import List
+from langchain_community.callbacks.openai_info import OpenAICallbackHandler
 
+callback_handler = OpenAICallbackHandler()
 
 class Plan(BaseModel):
     """Plan to follow in future"""

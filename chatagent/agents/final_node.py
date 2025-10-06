@@ -28,8 +28,10 @@ class FinalAnswerAgent:
             *state["messages"],
         ]
 
-        final_answer = self.llm.invoke(messages, config={"callbacks": [self.callback_handler]})
-        usages_data = usages(self.callback_handler)
+        with get_openai_callback() as cb:
+            final_answer = self.llm.invoke(messages)
+
+        usages_data = usages(cb)
 
         # Ensure 'reason' is a string (some downstream code / pydantic expects a string)
         if hasattr(final_answer, "content"):

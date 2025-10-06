@@ -135,12 +135,12 @@ async def linkedin_person_search(
         res = conn.getresponse()
         data = res.read().decode("utf-8")
 
-        structured_llm = llm.with_structured_output(PersonList)
-
-        result = await structured_llm.ainvoke(
-            "Extract the following job data into structured fields:\n"
-            f"{json.dumps(data, indent=2)}"
-        )
+        with get_openai_callback() as cb:
+            structured_llm = llm.with_structured_output(PersonList)
+            result = await structured_llm.ainvoke(
+                "Extract the following job data into structured fields:\n"
+                f"{json.dumps(data, indent=2)}"
+            )
 
         data = result.model_dump()
 

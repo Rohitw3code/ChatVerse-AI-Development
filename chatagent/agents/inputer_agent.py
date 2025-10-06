@@ -2,15 +2,15 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
-from chatagent.utils import State
+from chatagent.utils import State, usages
 from chatagent.config.init import llm
+from langchain_community.callbacks import get_openai_callback
 
 
 class InputRouter:
     """
     Decides whether the user query should go to planner or finish.
     """
-
     class Router(BaseModel):
         next: Literal["planner_node", "finish"]
         reason: str = Field(
@@ -78,10 +78,12 @@ class InputRouter:
             *sanitized_messages
         ]
 
+        with get_openai_callback() as cb:
+            decision: self.Router = self.llm.with_structured_output(self.Router).invoke(
+                messages
+            )
 
-        decision: self.Router = self.llm.with_structured_output(self.Router).invoke(
-            messages
-        )
+        usages_data = usages(cb)
         ai_message = AIMessage(content=decision.final_answer or decision.reason)
 
         print("\n", "=="*8)
@@ -103,7 +105,7 @@ class InputRouter:
                         "next_type": "thinker",
                         "plans": state.get("plans", []),
                         "current_task": state.get("current_task", "NO TASK"),
-                        "usages": state.get("usages", {}),
+                        "usages": usages_data,
                         "tool_output": state.get("tool_output"),
                         "max_message": state.get("max_message", 10),
                 },
@@ -125,7 +127,7 @@ class InputRouter:
                     "type": "thinker",
                     "plans": state.get("plans", []),
                     "current_task": state.get("current_task", "NO TASK"),
-                    "usages": state.get("usages", {}),
+                    "usages": usages_data,
                     "tool_output": state.get("tool_output"),
                     "max_message": state.get("max_message", 10),
             },
