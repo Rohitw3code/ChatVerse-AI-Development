@@ -1,4 +1,3 @@
-# planner_agent.py
 
 from typing_extensions import Literal
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
@@ -21,40 +20,40 @@ class Plan(BaseModel):
     )
 
 
-def make_planner_node(
-        available_agents: dict[str, str], node_name="planner_node"):
+def make_planner_node(node_name="planner_node"):
     """
-    Factory to create a planner node that generates a structured step-by-step plan.
-
-    Args:
-        available_agents: Dict of {agent_name: description}.
-        node_name: Name for the planner node.
+    Factory to create a planner node that generates a structured step-by-step plan
+    based on the agents found in the state.
     """
-
-    # Build system prompt dynamically
-    agents_desc = [
-        f"- {name}: {desc}" for name,
-        desc in available_agents.items()]
-    planner_prompt = (
-        "You are a planning agent. Your job is to analyze the user request and create a clear, step-by-step plan.\n\n"
-        "Available agents & tools:\n"
-        f"{chr(10).join(agents_desc)}\n\n"
-        "Rules:\n"
-        "- Use ONLY the exact agent/tool names listed above when relevant.\n"
-        "- Do NOT add actions or tasks that the user did not explicitly request.\n"
-        "- Do NOT over-divide tasks into unnecessary sub-steps.\n"
-        "  • Example: If the user asks to draft an email → one step is enough.\n"
-        "  • If the user asks to draft AND send an email → two or at most three steps are enough.\n"
-        "- Keep the plan concise, with only the essential steps needed.\n"
-        "- If information is missing or ambiguous, ask the user for clarification instead of assuming.\n"
-        "- Only include approval or confirmation steps if the user explicitly asks for them.\n"
-        "- The plan must strictly reflect the user’s query and nothing more.\n"
-    )
-
 
     def planner(state: State) -> Command[Literal["task_selection_node"]]:
+        
+        # Dynamically get available agents from the state, put there by the search_agent_node
+        available_agents = state.get("agents", [])
+        
+        if not available_agents:
+             agents_desc = ["- No specific agents were found for this query."]
+        else:
+            agents_desc = [
+                f"- {agent['name']}: {agent['description']}" for agent in available_agents
+            ]
 
-
+        # Build system prompt dynamically using agents from the state
+        planner_prompt = (
+            "You are a planning agent. Your job is to analyze the user request and create a clear, step-by-step plan.\n\n"
+            "Available agents & tools for this query:\n"
+            f"{chr(10).join(agents_desc)}\n\n"
+            "Rules:\n"
+            "- Use ONLY the exact agent names listed above when creating plan steps.\n"
+            "- Do NOT add actions or tasks that the user did not explicitly request.\n"
+            "- Do NOT over-divide tasks into unnecessary sub-steps.\n"
+            "  • Example: If the user asks to draft an email → one step is enough.\n"
+            "  • If the user asks to draft AND send an email → two or at most three steps are enough.\n"
+            "- Keep the plan concise, with only the essential steps needed.\n"
+            "- If information is missing or ambiguous, a step should be to ask the user for clarification.\n"
+            "- Only include approval or confirmation steps if the user explicitly asks for them.\n"
+            "- The plan must strictly reflect the user’s query and nothing more.\n"
+        )
 
         with get_openai_callback() as cb:
             message_content = f"info : {planner_prompt} and User Query : {state['input']}"

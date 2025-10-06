@@ -78,12 +78,15 @@ class State(TypedDict, total=False):
     tool_output: JSON
     max_message:int = 10
 
+    agent_search_count: int   # max agent search attempts
+
+    agents: List[dict]  # list of agents available
+
     # Routing guardrails
     back_count: int
     max_back: int
     dispatch_retries: int
     max_dispatch_retries: int
-    # removed: last_task, route_history (no agentic use)
 
     # Task tracking
     task_status: str

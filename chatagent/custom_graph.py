@@ -35,6 +35,7 @@ from chatagent.db.database_manager import DatabaseManager
 from chatagent.agents.inputer_agent import inputer
 from chatagent.unused_nodes.memory_loader import memory_loader_node
 from chatagent.unused_nodes.memory_retrieval_agent import memory_retrieval_node
+from chatagent.agents.agent_search_node import search_agent_node
 
 
 db = Database()
@@ -45,23 +46,10 @@ embedding_model = OpenAIEmbeddings(
     api_key=BaseConfig.OPENAI_API_KEY, model="text-embedding-3-small"
 )
 
-available_agents = {
-    "gmail_agent_node": (
-        "Handles ALL tasks related to Gmail or Email. "
-    ),
-    "social_media_manager_node": (
-        "Handles tasks related to social media platforms like Instagram and YouTube."
-        "Youtube channel details, video information, etc."
-    ),
-    "research_agent_node": (
-        "it can only handle tasks related to searching, looking up, or finding information from the internet (e.g., LinkedIn, Google, web)."
-    )
-}
 
-
-planner_node = make_planner_node(available_agents)
+search_agent = search_agent_node()
+planner_node = make_planner_node()
 selection_node = task_selection_node()
-replanner_node = re_planner_node(available_agents)
 
 instagram_register = NodeRegistry()
 instagram_register.add(
@@ -141,11 +129,11 @@ task_dispatcher_node = task_dispatcher(
 graph_builder = StateGraph(State)
 
 graph_builder.add_node("inputer_node", inputer)
+graph_builder.add_node("search_agent_node", search_agent)
 graph_builder.add_node("planner_node", planner_node)
 graph_builder.add_node("task_selection_node", selection_node)
 graph_builder.add_node("final_answer_node", final_answer_node)
 graph_builder.add_node("task_dispatcher_node", task_dispatcher_node)
-graph_builder.add_node("replanner_node", replanner_node)
 graph_builder.add_node("gmail_agent_node", gmail_agent_node)
 graph_builder.add_node("social_media_manager_node", social_media_manager_node)
 graph_builder.add_node("instagram_manager_node", instagram_manager_node)

@@ -31,17 +31,15 @@ class InputRouter:
         """
 
         recent_messages = state['messages'][-state.get('max_message',20):]
-        # Add the latest user input
         recent_messages.append(HumanMessage(content=state["input"]))
 
-        # Sanitize messages to ensure proper tool call structure
         sanitized_messages = []
         for i, msg in enumerate(recent_messages):
             if isinstance(msg, ToolMessage):
                 if i > 0 and isinstance(recent_messages[i-1], AIMessage) and getattr(recent_messages[i-1], "tool_calls", None):
                     sanitized_messages.append(msg)
                 else:
-                    continue # Skip orphaned ToolMessage
+                    continue 
             else:
                 sanitized_messages.append(msg)
 
@@ -113,6 +111,7 @@ class InputRouter:
                 goto="__end__",
             )
 
+        # UPDATED SECTION: Changed planner_node to search_agent_node
         return Command(
             update={
                     "input": state['input'],
@@ -120,10 +119,10 @@ class InputRouter:
                     "current_message": [ai_message],
                     "reason": decision.reason,
                     "provider_id": state.get("provider_id"),
-                    "next_node": "planner_node",
+                    "next_node": "search_agent_node",
                     "node_type": "starter",
-                    "next_node_type": "planner",
-                    "next_type": "thinker",
+                    "next_node_type": "agent_searcher",
+                    "next_type": "agent_searcher",
                     "status": "success",
                     "type": "thinker",
                     "plans": state.get("plans", []),
@@ -132,7 +131,7 @@ class InputRouter:
                     "tool_output": state.get("tool_output"),
                     "max_message": state.get("max_message", 10),
             },
-            goto="planner_node",
+            goto="search_agent_node",
         )
 
 
