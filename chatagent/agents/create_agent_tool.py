@@ -62,7 +62,7 @@ def make_agent_tool_node(
             }
         )
         
-        messages = [SystemMessage(content=system_prompt),state["messages"]]
+        messages = [SystemMessage(content=system_prompt), *state["messages"]]        
         
         with get_openai_callback() as cb:
             print("members tools : ", members.runs())
