@@ -62,20 +62,10 @@ def make_agent_tool_node(
             }
         )
         
-        recent_messages = state["messages"]
-        sanitized_messages = []
-        for i, msg in enumerate(recent_messages):
-            if isinstance(msg, ToolMessage):
-                if i > 0 and isinstance(recent_messages[i-1], AIMessage) and getattr(recent_messages[i-1], "tool_calls", None):
-                    sanitized_messages.append(msg)
-                else:
-                    continue
-            else:
-                sanitized_messages.append(msg)
-
-        messages = [SystemMessage(content=system_prompt)] + sanitized_messages
+        messages = [SystemMessage(content=system_prompt),state["messages"]]
         
         with get_openai_callback() as cb:
+            print("members tools : ", members.runs())
             ai_msg: AIMessage = await llm.bind_tools(members.runs()).ainvoke(
                     messages, config={"callbacks": [callback_handler]}
                 )

@@ -8,129 +8,111 @@ from langchain_community.callbacks import get_openai_callback
 
 
 class InputRouter:
-    """
-    Decides whether the user query should go to planner or finish.
-    """
+    """Decide whether a user query is actionable (route to planner) or simple (finish)."""
+
     class Router(BaseModel):
         next: Literal["search_agent_node", "finish"]
-        reason: str = Field(
-            description="write your approch to decide the next node , do not write the next node name here"
-        )
         final_answer: Optional[str] = Field(
-            None, description="If `finish`, provide the final assistant answer."
+            None,
+            description=(
+                "Assistant reply to the user. "
+                "If the query is actionable, this MUST begin exactly with: "
+                "'I will help you do this: {task}'. "
+                "Do NOT include routing justification or the reason for choosing the next node."
+            ),
+        )
+        meta: Optional[str] = Field(
+            None, description="Short machine-readable tag (optional)."
         )
 
     def __init__(self, llm):
         self.llm = llm
 
-    async def route(
-        self, state: State
-    ) -> Command[Literal["search_agent_node", "__end__"]]:
-        """ 
-        Determines the next node based on the user's input.
-        """
+    async def route(self, state: State) -> Command[Literal["search_agent_node", "__end__"]]:
+        """Pick next node: actionable -> search_agent_node, simple -> finish."""
 
-        recent_messages = state['messages'][-state.get('max_message',20):]
+        recent_messages = state["messages"][-state.get("max_message", 20) :]
         recent_messages.append(HumanMessage(content=state["input"]))
 
         sanitized_messages = []
         for i, msg in enumerate(recent_messages):
             if isinstance(msg, ToolMessage):
-                if i > 0 and isinstance(recent_messages[i-1], AIMessage) and getattr(recent_messages[i-1], "tool_calls", None):
+                if i > 0 and isinstance(recent_messages[i - 1], AIMessage) and getattr(
+                    recent_messages[i - 1], "tool_calls", None
+                ):
                     sanitized_messages.append(msg)
                 else:
-                    continue 
+                    continue
             else:
                 sanitized_messages.append(msg)
 
+        # Short, precise system prompt
+        system = SystemMessage(
+            content=(
+                "You are Chatverse AI. Choose between `search_agent_node` (actionable/agentic) "
+                "or `finish` (simple Q/A).\n\n"
+                "Rules:\n"
+                "- Actionable/agentic tasks (planning, executing, scheduling, searching, sending, etc.) -> "
+                "`search_agent_node`. For these, set `final_answer` and it MUST start with:\n"
+                "  I will help you do this: {short task summary}\n"
+                "  (No routing explanation — do not explain why you chose the node.)\n"
+                "- Non-actionable (greetings, factual queries, quick answers) -> `finish`. "
+                "Provide `final_answer` as the assistant reply.\n"
+                "- If unclear, prefer `search_agent_node`.\n\n"
+                "Return output that conforms to the Router schema only."
+            )
+        )
 
-        messages = [
-            SystemMessage(
-                content=(
-                    "You are Chatverse AI, an intelligent assistant for the platform Chatverse (chatverse.io). "
-                    "Your purpose is to make any task complete with just the user’s query.\n\n"
-                    "You have the capability to perform many tasks like Gmail and Instagram related tasks only, "
-                    "but for any other actionable or agentic queries, you should still route to the planner node.\n\n"
-
-                    "Routing Rules:\n"
-                    "- If the query is an **actionable or agentic task** "
-                    "(e.g., planning, executing, performing a task, searching, or retrieving external information), "
-                    "route to `search_agent_node`.\n"
-                    "  - Examples:\n"
-                    "    - 'Send an email to my manager.'\n"
-                    "    - 'Schedule a post on Instagram.'\n"
-                    "    - 'Plan my daily tasks.'\n"
-                    "    - 'Look for the AI ML job in India.'\n"
-                    "    - 'Find trending hashtags for Instagram.'\n\n"
-
-                    "- If the query is a simple, generic, or casual question that does not involve any actionable task, "
-                    "route to `finish`.\n"
-                    "  - Examples:\n"
-                    "    - 'Hi'\n"
-                    "    - 'How are you?'\n"
-                    "    - 'What is Chatverse?'\n\n"
-
-                    "If the user’s query is ambiguous or unclear, default to `search_agent_node`.\n\n"
-
-                    "Respond with only one choice: `search_agent_node` or `finish`."
-                )
-            ),
-            *sanitized_messages
-        ]
+        messages = [system, *sanitized_messages]
 
         with get_openai_callback() as cb:
-            decision: self.Router = self.llm.with_structured_output(self.Router).invoke(
+            decision: self.Router = await self.llm.with_structured_output(self.Router).ainvoke(
                 messages
             )
 
         usages_data = usages(cb)
-        ai_message = AIMessage(content=decision.final_answer or decision.reason)
 
-        print("\n", "=="*8)
+        # The user-facing message MUST be `final_answer` (or fallback to meta)
+        ai_message = AIMessage(content=decision.final_answer or decision.meta or "")
+
+        # Minimal debug (keeps logs readable)
+        print("\n", "==" * 8)
         print("Decision : ", decision)
-        print("="*8, "\n")
+        print("=" * 8, "\n")
+
+        common_update = {
+            "input": state["input"],
+            "messages": [ai_message],
+            "current_message": [ai_message],
+            "reason": decision.meta,
+            "provider_id": state.get("provider_id"),
+            "status": "success",
+            "type": "thinker",
+            "plans": state.get("plans", []),
+            "current_task": state.get("current_task", "NO TASK"),
+            "usages": usages_data,
+            "tool_output": state.get("tool_output"),
+            "max_message": state.get("max_message", 10),
+        }
 
         if decision.next.lower() == "finish":
-            return Command(
-                update={
-                        "input": state['input'],
-                        "messages": [ai_message],
-                        "current_message": [ai_message],
-                        "reason": decision.reason,
-                        "provider_id": state.get("provider_id"),
-                        "next_node": "__end__",
-                        "status": "success",
-                        "type": "thinker",
-                        "next_type": "thinker",
-                        "plans": state.get("plans", []),
-                        "current_task": state.get("current_task", "NO TASK"),
-                        "usages": usages_data,
-                        "tool_output": state.get("tool_output"),
-                        "max_message": state.get("max_message", 10),
-                },
-                goto="__end__",
+            common_update.update(
+                {
+                    "next_node": "__end__",
+                    "next_type": "thinker",
+                }
             )
+            return Command(update=common_update, goto="__end__")
 
-        return Command(
-            update={
-                    "input": state['input'],
-                    "messages": [ai_message],
-                    "current_message": [ai_message],
-                    "reason": decision.reason,
-                    "provider_id": state.get("provider_id"),
-                    "next_node": "search_agent_node",
-                    "next_type": "agent_searcher",
-                    "status": "success",
-                    "type": "thinker",
-                    "plans": state.get("plans", []),
-                    "current_task": state.get("current_task", "NO TASK"),
-                    "usages": usages_data,
-                    "tool_output": state.get("tool_output"),
-                    "max_message": state.get("max_message", 10),
-            },
-            goto="search_agent_node",
+        # actionable path
+        common_update.update(
+            {
+                "next_node": "search_agent_node",
+                "next_type": "agent_searcher",
+            }
         )
+        return Command(update=common_update, goto="search_agent_node")
 
 
-# Instantiate the router with the language model
+# Instantiate router method (callable)
 inputer = InputRouter(llm).route
