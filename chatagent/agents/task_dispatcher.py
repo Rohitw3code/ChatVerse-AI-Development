@@ -55,7 +55,7 @@ def task_dispatcher(
         next: str = Field(
             ...,
             description="Exact node name to call next, or 'END' or 'NEXT_TASK' to handle special commands.")
-        reason: str = Field(..., description="Why this next step was chosen.")
+        reason: str = Field(..., description="write as human what you did and what next never reveal the next node name here or any internal state talk like human approch")
 
         @field_validator("next")
         @classmethod

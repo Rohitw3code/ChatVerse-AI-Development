@@ -12,9 +12,9 @@ class InputRouter:
     Decides whether the user query should go to planner or finish.
     """
     class Router(BaseModel):
-        next: Literal["planner_node", "finish"]
+        next: Literal["search_agent_node", "finish"]
         reason: str = Field(
-            description="Why this choice was made, referencing the user query and context."
+            description="write your approch to decide the next node , do not write the next node name here"
         )
         final_answer: Optional[str] = Field(
             None, description="If `finish`, provide the final assistant answer."
@@ -25,7 +25,7 @@ class InputRouter:
 
     async def route(
         self, state: State
-    ) -> Command[Literal["planner_node", "__end__"]]:
+    ) -> Command[Literal["search_agent_node", "__end__"]]:
         """ 
         Determines the next node based on the user's input.
         """
@@ -55,7 +55,7 @@ class InputRouter:
                     "Routing Rules:\n"
                     "- If the query is an **actionable or agentic task** "
                     "(e.g., planning, executing, performing a task, searching, or retrieving external information), "
-                    "route to `planner_node`.\n"
+                    "route to `search_agent_node`.\n"
                     "  - Examples:\n"
                     "    - 'Send an email to my manager.'\n"
                     "    - 'Schedule a post on Instagram.'\n"
@@ -70,9 +70,9 @@ class InputRouter:
                     "    - 'How are you?'\n"
                     "    - 'What is Chatverse?'\n\n"
 
-                    "If the user’s query is ambiguous or unclear, default to `planner_node`.\n\n"
+                    "If the user’s query is ambiguous or unclear, default to `search_agent_node`.\n\n"
 
-                    "Respond with only one choice: `planner_node` or `finish`."
+                    "Respond with only one choice: `search_agent_node` or `finish`."
                 )
             ),
             *sanitized_messages
@@ -112,7 +112,6 @@ class InputRouter:
                 goto="__end__",
             )
 
-        # UPDATED SECTION: Changed planner_node to search_agent_node
         return Command(
             update={
                     "input": state['input'],

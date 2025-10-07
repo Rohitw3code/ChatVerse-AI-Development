@@ -27,24 +27,26 @@ search_tool = TavilySearch(max_results=5)
 
 class LinkedInSearch(BaseModel):
     """Input schema for the LinkedIn Person Search tool."""
+
     search_word: str = Field(
         ...,
-        description="The search term for finding people (e.g., 'plastics ceo', 'software engineer at Google').")
+        description="The search term for finding people (e.g., 'plastics ceo', 'software engineer at Google').",
+    )
     page_number: int = Field(1, description="The page number for pagination.")
-    page_size: int = Field(
-        10, description="The number of results per page (max 10).")
+    page_size: int = Field(10, description="The number of results per page (max 10).")
 
 
 class PersonProfile(BaseModel):
     id: str = Field(..., description="Unique person ID (e.g., LinkedIn ID)")
     full_name: str = Field(..., description="Full name of the person")
     headline: Optional[str] = Field(
-        None, description="Professional headline or current role")
+        None, description="Professional headline or current role"
+    )
     organization: Optional[str] = Field(
-        None, description="Current company or organization")
+        None, description="Current company or organization"
+    )
     location: Optional[str] = Field(None, description="Geographic location")
-    url: Optional[str] = Field(
-        None, description="Profile URL (e.g., LinkedIn)")
+    url: Optional[str] = Field(None, description="Profile URL (e.g., LinkedIn)")
     image_url: Optional[str] = Field(None, description="Profile picture URL")
     experience: Optional[List[str]] = Field(
         None, description="List of past experiences or roles"
@@ -52,9 +54,7 @@ class PersonProfile(BaseModel):
     education: Optional[List[str]] = Field(
         None, description="List of educational qualifications"
     )
-    skills: Optional[List[str]] = Field(
-        None, description="List of key skills"
-    )
+    skills: Optional[List[str]] = Field(None, description="List of key skills")
 
 
 class PersonList(BaseModel):
@@ -65,10 +65,10 @@ class JobItem(BaseModel):
     id: str = Field(..., description="Unique job ID")
     title: str = Field(..., description="Job title")
     organization: str = Field(..., description="Company or organization name")
-    location: Optional[str] = Field(
-        None, description="Job location if available")
+    location: Optional[str] = Field(None, description="Job location if available")
     url: str = Field(..., description="Job posting URL")
     date_posted: str = Field(..., description="Date when the job was posted")
+
 
 # Step 2: Define schema for list of jobs
 
@@ -79,9 +79,8 @@ class JobList(BaseModel):
 
 @tool("linkedin_person_search", args_schema=LinkedInSearch)
 async def linkedin_person_search(
-        search_word: str,
-        page_number: int = 1,
-        page_size: int = 2):
+    search_word: str, page_number: int = 1, page_size: int = 2
+):
     """
     Search for LinkedIn profiles using the RapidAPI LinkedIn Data Max API.
 
@@ -105,7 +104,8 @@ async def linkedin_person_search(
         params={
             "search_word": search_word,
             "page_number": page_number,
-            "page_size": page_size}
+            "page_size": page_size,
+        },
     )
 
     conn = http.client.HTTPSConnection("linkedin-data-max.p.rapidapi.com")
@@ -114,7 +114,7 @@ async def linkedin_person_search(
     payload_dict = {
         "search_word": search_word,
         "page_number": page_number,
-        "page_size": page_size
+        "page_size": page_size,
     }
     payload = json.dumps(payload_dict)
 
@@ -125,9 +125,9 @@ async def linkedin_person_search(
         return "Error: RAPID_API_KEY environment variable not set."
 
     headers = {
-        'x-rapidapi-key': api_key,
-        'x-rapidapi-host': "linkedin-data-max.p.rapidapi.com",
-        'Content-Type': "application/json"
+        "x-rapidapi-key": api_key,
+        "x-rapidapi-host": "linkedin-data-max.p.rapidapi.com",
+        "Content-Type": "application/json",
     }
 
     try:
@@ -141,6 +141,7 @@ async def linkedin_person_search(
                 "Extract the following job data into structured fields:\n"
                 f"{json.dumps(data, indent=2)}"
             )
+        usages_data = usages(cb)
 
         data = result.model_dump()
 
@@ -149,7 +150,8 @@ async def linkedin_person_search(
             status="success",
             parent_node="research_agent_node",
             params={"search_word": search_word},
-            tool_output=ToolOutput(output=data, type="person")
+            usages=usages_data,
+            tool_output=ToolOutput(output=data, type="person"),
         )
         return data
 
@@ -159,7 +161,7 @@ async def linkedin_person_search(
             status="error",
             parent_node="research_agent_node",
             params={"search_word": search_word},
-            tool_output=ToolOutput(output=str(e), type="error")
+            tool_output=ToolOutput(output=str(e), type="error"),
         )
         return f"An error occurred: {e}"
 
@@ -168,21 +170,21 @@ async def linkedin_person_search(
 
 
 class LinkedInJobSearch(BaseModel):
-    title: str = Field(...,
-                       description="Job title to search (e.g. Data Scientist, Backend Engineer)")
+    title: str = Field(
+        ..., description="Job title to search (e.g. Data Scientist, Backend Engineer)"
+    )
     location: str = Field(
         ...,
-        description="Location to search (e.g. United States, India, Remote, or queries like 'United States OR United Kingdom')")
+        description="Location to search (e.g. United States, India, Remote, or queries like 'United States OR United Kingdom')",
+    )
     limit: int = Field(10, description="Max number of results (<=10)")
     offset: int = Field(0, description="Pagination offset")
 
 
 @tool("linkedin_job_search", args_schema=LinkedInJobSearch)
 async def linkedin_job_search(
-        title: str,
-        location: str,
-        limit: int = 5,
-        offset: int = 0):
+    title: str, location: str, limit: int = 5, offset: int = 0
+):
     """
     Search LinkedIn job listings using the RapidAPI LinkedIn Job Search API.
 
@@ -204,17 +206,13 @@ async def linkedin_job_search(
         tool_name="linkedin_job_search",
         status="started",
         parent_node="research_agent_node",
-        params={
-            "title": title,
-            "location": location,
-            "limit": limit,
-            "offset": offset})
+        params={"title": title, "location": location, "limit": limit, "offset": offset},
+    )
 
-    conn = http.client.HTTPSConnection(
-        "linkedin-job-search-api.p.rapidapi.com")
+    conn = http.client.HTTPSConnection("linkedin-job-search-api.p.rapidapi.com")
     headers = {
-        'x-rapidapi-key': os.getenv("RAPID_API_KEY"),
-        'x-rapidapi-host': "linkedin-job-search-api.p.rapidapi.com"
+        "x-rapidapi-key": os.getenv("RAPID_API_KEY"),
+        "x-rapidapi-host": "linkedin-job-search-api.p.rapidapi.com",
     }
 
     # Construct filters exactly like test.py format
@@ -226,11 +224,14 @@ async def linkedin_job_search(
 
     res = conn.getresponse()
     data = res.read().decode("utf-8")
-    structured_llm = llm.with_structured_output(JobList)
-    result = await structured_llm.ainvoke(
-        "Extract the following job data into structured fields:\n"
-        f"{json.dumps(data, indent=2)}"
-    )
+    with get_openai_callback() as cb:
+        structured_llm = llm.with_structured_output(JobList)
+        result = await structured_llm.ainvoke(
+            "Extract the following job data into structured fields:\n"
+            f"{json.dumps(data, indent=2)}"
+        )
+
+    usages_data = usages(cb)
 
     data = result.model_dump()
     log_tool_event(
@@ -238,7 +239,8 @@ async def linkedin_job_search(
         status="success",
         parent_node="research_agent_node",
         params={"title": title, "location": location},
-        tool_output=ToolOutput(output=data, type="job")
+        usages=usages_data,
+        tool_output=ToolOutput(output=data, type="job"),
     )
     return data
 
@@ -279,22 +281,26 @@ async def tavily_search(
         tool_name="tavily_search",
         status="started",
         parent_node="research_agent_node",
-        params={
-            "query": query})
+        params={"query": query},
+    )
     payload = {"query": query, "max_results": limit}
     if search_depth:
         payload["search_depth"] = search_depth
     if time_range:
         payload["time_range"] = time_range
-    result = await search_tool.ainvoke(payload)
+
+    with get_openai_callback() as cb:
+        result = await search_tool.ainvoke(payload)
+    usages_data = usages(cb)
+
     log_tool_event(
         tool_name="tavily_search",
         status="success",
         parent_node="research_agent_node",
-        params={
-            "query": query},
-        tool_output=ToolOutput(
-            output=result))
+        params={"query": query},
+        usages=usages_data,
+        tool_output=ToolOutput(output=result),
+    )
     return result
 
 
@@ -311,7 +317,8 @@ research_agent_node = make_agent_tool_node(
         "- tavily_search: Search the web for fresh information (news/jobs/docs).\n"
         "- linkedin_job_search: Search LinkedIn job listings by title and location.\n"
         "- linkedin_person_search: Search any person takes search keyword"
-        "Pick the appropriate tool based on the user query."),
+        "Pick the appropriate tool based on the user query."
+    ),
     node_name="research_agent_node",
     parent_node="task_dispatcher_node",
 )

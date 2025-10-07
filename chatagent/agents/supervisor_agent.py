@@ -46,7 +46,7 @@ def make_supervisor_node(
         next: str = Field(
             ...,
             description="Exact node name to call next, or 'BACK', or 'NEXT_TASK' to handle special commands.")
-        reason: str = Field(..., description="Why this next step was chosen.")
+        reason: str = Field(..., description="write the next approch to decide the next node never mention the next node name here or any internal state talk like human approch")
 
         @field_validator("next")
         @classmethod

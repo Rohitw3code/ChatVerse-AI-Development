@@ -233,12 +233,13 @@ def draft_gmail(
     gmail_prompt = f"""
     Gmail Request: {params}
 
-    Create a professional Gmail:
+        Create a professional Gmail:
     1. Subject line
     2. Well-structured body
     3. Professional tone
     4. do not inlcude a blank field
     5. do not include any irrelavnt data whcih is not mention by the user
+    6. use by chatverse as your assistant name
     """
 
     with get_openai_callback() as cb:

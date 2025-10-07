@@ -9,9 +9,6 @@ from langchain_community.callbacks.openai_info import OpenAICallbackHandler
 
 
 class FinalAnswerAgent:
-    """
-    give final answer
-    """
 
     def __init__(self, llm):
         self.llm = llm

@@ -14,7 +14,7 @@ class AgentCheck(BaseModel):
         description="You decide based on the given agent list and its description is it sufficient to handle the user query and it does not required to recheck with more agents then return False, if you think the given agent list is not sufficient to handle the user query and it required to recheck with more agents then return True"
     )
     reason: str = Field(
-        description="if False do just retrun False, if True explain why the given agent list is not sufficient to handle the user query"
+        description="if False do just retrun False, if True explain why the given agent list is not sufficient to handle the user query , never mention the agent names in the reason just explain the reason or approach in few words"
     )
 
 
@@ -82,7 +82,7 @@ def search_agent_node():
                     "agent_search_count": agent_search_count + 1,
                     "provider_id": state.get("provider_id"),
                     "next_node": "search_agent_node",
-                    "node_type": "agent_searcher",
+                    "node_type": "supervisor",
                     "type": "agent_searcher",
                     "agents": agents,
                     "next_type": "agent_searcher",

@@ -14,5 +14,13 @@ agents_registry = [
     {
         "name": "youtube_agent",
         "description": "Handles YouTube-related operations, primarily fetching details for a specified YouTube channel including channel statistics and information."
+    },
+    {
+        "name":"reaserch_agent",
+        "description":        
+        "You are a Research/Search Agent with access to these tools:\n"
+        "- tavily_search: Search the web for fresh information (news/jobs/docs).\n"
+        "- linkedin_job_search: Search LinkedIn job listings by title and location.\n"
+        "- linkedin_person_search: Search any person takes search keyword"
     }
 ]
