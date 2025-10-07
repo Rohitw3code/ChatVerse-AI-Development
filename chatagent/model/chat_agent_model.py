@@ -21,7 +21,6 @@ class StreamChunk(BaseModel):
     role: Optional[str] = None
     node: Optional[str] = None
     next_node: Optional[str] = None
-    node_type: Optional[str] = None
     type_: Optional[str] = None
     next_type: Optional[str] = None
 
@@ -69,7 +68,6 @@ class StreamChunk(BaseModel):
                                 content=str(
                                     stream_data[node_name][0].value['data']['title']))],
                         "node": "interrupt_node",
-                        "node_type": stream_data[node_name][0].value['type'],
                         "next_node": "input_node",
                         "type": "interrupt",
                         "next_type": "human",
@@ -115,7 +113,6 @@ class StreamChunk(BaseModel):
             role=role,
             node=node_name,
             next_node=node_data.get("next_node", ""),
-            node_type=node_data.get("node_type", ""),
             type_=node_data.get("type") or node_data.get("type_", ""),
             next_type=node_data.get("next_type", ""),
             message=message_text,

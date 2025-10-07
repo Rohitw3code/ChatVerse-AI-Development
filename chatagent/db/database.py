@@ -34,7 +34,6 @@ class Database:
                     role TEXT,
                     node TEXT,
                     next_node TEXT,
-                    node_type TEXT,
                     type TEXT,
                     next_type TEXT,
                     message TEXT,
@@ -83,12 +82,12 @@ class Database:
             """
             INSERT INTO chat_agent (
                 stream_type, provider_id, thread_id, query_id, role, message, node, next_node,
-                node_type, type, next_type, reason,
+                 type, next_type, reason,
                 current_messages, params, embedding, tool_output, usage,
                 status, total_token, total_cost, data
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s,%s, %s, %s, %s, %s,
+                %s, %s, %s, %s,%s, %s, %s, %s,
                 %s, %s, %s, %s
             )
             """,
@@ -101,7 +100,6 @@ class Database:
                 kwargs.get("message"),
                 kwargs.get("node"),
                 kwargs.get("next_node"),
-                kwargs.get("node_type"),
                 kwargs.get("type_"),
                 kwargs.get("next_type"),
                 kwargs.get("reason"),
@@ -183,7 +181,7 @@ class Database:
                 """
                 SELECT
                     id, stream_type, provider_id, thread_id, role, node, next_node,
-                    node_type, type, next_type, message, reason,
+                    type, next_type, message, reason,
                     current_messages, params, tool_output, usage, status,
                     total_token, total_cost, data, execution_time
                 FROM chat_agent

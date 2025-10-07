@@ -88,7 +88,6 @@ def make_planner_node(node_name="planner_node"):
                 "reason": result.reason,
                 "provider_id": state.get("provider_id"),
                 "next_node": "task_dispatcher_node",
-                "node_type": "planner",
                 "type": "planner",
                 "next_type": "thinker",
                 "usages": usages_data,

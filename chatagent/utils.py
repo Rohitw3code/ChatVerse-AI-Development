@@ -65,7 +65,6 @@ class State(TypedDict, total=False):
     provider_id:str
 
     next_node: str | None
-    node_type: NodeType | str | None
 
     type: AllowedType | str
     next_type: AllowedType | str | None
@@ -217,7 +216,6 @@ def log_tool_event(
                     {"role": "tool", "content": f"Called {parent_node} -> {tool_name}"}
                 ],
                 "next_node": parent_node,
-                "node_type": "tool",
                 "type": "tool",
                 "next_type": "executor",
                 "status": status,
@@ -366,7 +364,6 @@ def print_stream_debug(stream_data: dict):
     debug_info = {
         # "input": node_data.get("input"),
         "node": node_name,
-        "node_type": node_data.get("node_type"),
         "next_node": node_data.get("next_node"),
         "type": node_data.get("type") or node_data.get("type_", ""),
         "next_type": node_data.get("next_type"),

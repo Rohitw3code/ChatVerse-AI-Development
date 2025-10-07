@@ -32,7 +32,6 @@ def task_selection_node(node_name="task_selection_node"):
                 "reason": f"{current_task}",
                 "provider_id": state.get("provider_id"),
                 "next_node": "task_dispatcher_node",
-                "node_type": "selection",
                 "type": "planner",
                 "next_type": "thinker",
                 "usages": {},
