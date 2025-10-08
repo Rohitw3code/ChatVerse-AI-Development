@@ -16,9 +16,10 @@ class NodeSpec:
     def doc(self, func_type: str = "agent") -> str:
         """Get the node's docstring (used as prompt info)."""
         if func_type == "supervisor":
-            return (self.run.__doc__ + " (Tool) " or "").strip()
+            doc = (self.run.__doc__ or "").strip()
+            return (doc + " (Tool)").strip() if doc else "(no description)"
         else:
-            return getattr(self.run, "description", "").strip()
+            return getattr(self.run, "description", "").strip() or "(no description)"
 
 
 class NodeRegistry:
@@ -57,13 +58,21 @@ class NodeRegistry:
         """Return the `run` function for all registered nodes."""
         return [spec.run for spec in self._nodes.values()]
 
+    # def prompt_block(self, func_type: str = "agent") -> str:
+    #     # Build a prompt listing from docstrings only
+    #     lines = []
+    #     for s in self._nodes.values():
+    #         # if s.type == "supervisor":
+    #         doc = s.prompt
+    #         # else:
+    #         #     doc = s.doc(func_type.lower()) or "(no description)"
+    #         lines.append(f"- {s.name} [{s.type}]: {doc}")
+    #     return "\n".join(lines)
+
     def prompt_block(self, func_type: str = "agent") -> str:
         # Build a prompt listing from docstrings only
         lines = []
         for s in self._nodes.values():
-            # if s.type == "supervisor":
             doc = s.prompt
-            # else:
-            #     doc = s.doc(func_type.lower()) or "(no description)"
             lines.append(f"- {s.name} [{s.type}]: {doc}")
         return "\n".join(lines)

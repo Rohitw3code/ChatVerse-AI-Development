@@ -12,14 +12,27 @@ agent_names = [agent['name'] for agent in agents_registry]
 agent_descriptions = [agent['description'] for agent in agents_registry]
 agent_embeddings = np.array([get_embedding(desc) for desc in agent_descriptions])
 
+
+_agent_embeddings = None
+
+def ensure_agent_embeddings():
+    global _agent_embeddings
+    if _agent_embeddings is None:
+        agent_descriptions = [agent['description'] for agent in agents_registry]
+        _agent_embeddings = np.array([get_embedding(desc) for desc in agent_descriptions])
+    return _agent_embeddings
+
+
 def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
+
 def get_relevant_agents(query, top_k=None, threshold=None):
+    embeddings = ensure_agent_embeddings()
+    query_embedding = get_embedding(query)
+    cos_scores = np.array([cosine_similarity(emb, query_embedding) for emb in embeddings])
     if top_k is None and threshold is None:
         top_k = 3
-    query_embedding = get_embedding(query)
-    cos_scores = np.array([cosine_similarity(emb, query_embedding) for emb in agent_embeddings])
     if threshold is not None:
         mask = cos_scores >= threshold
         filtered_indices = np.argsort(cos_scores[mask])[::-1]

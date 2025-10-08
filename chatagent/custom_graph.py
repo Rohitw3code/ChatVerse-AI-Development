@@ -32,8 +32,6 @@ from pydantic import BaseModel, Field
 from config import BaseConfig
 from chatagent.db.database_manager import DatabaseManager
 from chatagent.agents.inputer_agent import inputer
-from chatagent.unused_nodes.memory_loader import memory_loader_node
-from chatagent.unused_nodes.memory_retrieval_agent import memory_retrieval_node
 from chatagent.agents.agent_search_node import search_agent_node
 
 
