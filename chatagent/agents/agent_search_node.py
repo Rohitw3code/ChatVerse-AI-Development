@@ -1,5 +1,5 @@
 from typing_extensions import Literal
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage,SystemMessage
 from langgraph.types import Command
 from chatagent.config.init import llm
 from chatagent.utils import State, usages
@@ -19,29 +19,54 @@ class AgentCheck(BaseModel):
 
 
 def search_agent_node():
+    SYSTEM_PROMPT = """
+        You are the *Agent Availability Evaluator*.
+
+        Your ONLY responsibility is to check if there is at least one relevant agent available 
+        from the provided agent list that can handle the given user request.
+
+        You do NOT need to understand or generate a solution for the request.  
+        You do NOT need to ask for missing data or clarify the task.  
+        You ONLY check for *availability* of a relevant agent.
+
+        Rules:
+        - If there is at least one agent whose description matches or relates to the user’s request,
+        set `recheck = False` (sufficient agents found).
+        - If no listed agent appears relevant or capable, set `recheck = True`.
+        - Never mention agent names in the reason.
+        - If `recheck = False`, the system will automatically route to the planner node, 
+        which will handle content generation and clarification later.
+        - If `recheck = True`, explain briefly why the current list seems insufficient (e.g., “no matching tools found”).
+
+        Output must strictly follow:
+        - `recheck`: True or False
+        - `reason`: concise reason (e.g., “sufficient agents found” or “no matching tools”)
+    """
 
     def search_agent(state: State) -> Command[Literal["search_agent_node", "planner_node", "__end__"]]:
         
         from chatagent.agents.agent_retrival import get_relevant_agents
 
         agents = get_relevant_agents(state["input"], top_k=5)
+
+        print("\n\nAgents Retrieved for Search Agent Node:", agents,"\n\n")
+
         agent_search_count = state.get("agent_search_count", 0)
 
         with get_openai_callback() as cb:
             result: AgentCheck = llm.with_structured_output(AgentCheck).invoke(
                 [
+                    SystemMessage(content=SYSTEM_PROMPT),
                     HumanMessage(
-                        content=f"Available agents & tools:\n"
-                        + "\n".join(
-                            [
-                                f"- {agent['name']}: {agent['description']}"
-                                for agent in agents
-                            ]
+                        content=(
+                            "Available agents and tools:\n"
+                            + "\n".join([f"- {agent['name']}: {agent['description']}" for agent in agents])
+                            + f"\n\nUser Query: {state['input']}\n\n"
+                            "Decide if any of these agents can handle the request. "
+                            "If yes, return recheck=False; if not, return recheck=True."
                         )
-                        + f"\n\nUser Query: {state['input']}\n\n"
-                        + "Based on the above available agents and user query, do you think the given agent list is sufficient to handle the user query or not, if you think it is sufficient then return False, if you think it is not sufficient then return True and explain why?"
                     ),
-                ]  
+                ]
             )
         usages_data = usages(cb)
 

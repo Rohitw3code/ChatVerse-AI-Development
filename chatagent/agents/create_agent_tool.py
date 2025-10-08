@@ -30,12 +30,13 @@ def make_agent_tool_node(
 ):
 
     system_prompt = (
-        "You are an agent that can choose and call the following tools when needed.\n"
-        f"{members.prompt_block('agent')}\n"
-        "Decide which tool to call next based on the user request and context.\n"
+        "You are an agent capable of choosing and using various tools to complete tasks.\n"
+        f"{members.prompt_block('agent')}\n\n"
+        "If a tool does not return useful data, you may retry the SAME tool up to 3 times max"
+        "with slightly different parameter values to improve the results.\n"
+        "Always state which tool you used and summarize the final result.\n"
+        "If a tool still fails after retries, continue gracefully or report failure.\n"
         "If no tool is needed, respond normally.\n"
-        "if you dont have the capability just say it"
-        "You must mention with proper format what you got the data from the tool you called"
     )
 
     async def agent_tool_node(state: State) -> Command[Literal[parent_node]]:
