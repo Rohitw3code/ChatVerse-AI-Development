@@ -17,9 +17,9 @@ class Plan(BaseModel):
     steps: List[str] = Field(
         description="different steps to follow, should be in sorted order"
     )
-    reason: str = Field(
-        description="overall reason and explaination about the steps in short"
-    )
+    # reason: str = Field(
+    #     description="overall reason and explaination about the steps in short"
+    # )
 
 
 def make_planner_node(node_name="planner_node"):
@@ -85,7 +85,7 @@ def make_planner_node(node_name="planner_node"):
                 "input": state["input"],
                 "messages": [AIMessage(content=f"{plan_text}")],
                 "current_message": [AIMessage(content=f"{plan_text}")],
-                "reason": result.reason,
+                # "reason": result.reason,
                 "provider_id": state.get("provider_id"),
                 "next_node": "task_dispatcher_node",
                 "type": "planner",

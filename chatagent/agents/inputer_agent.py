@@ -73,7 +73,6 @@ class InputRouter:
             "input": state["input"],
             "messages": [ai_message],
             "current_message": [ai_message],
-            "reason": decision.meta,
             "provider_id": state.get("provider_id"),
             "status": "success",
             "type": "thinker",
