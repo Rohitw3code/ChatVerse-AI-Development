@@ -187,81 +187,100 @@ async def send_message_stream(
                 "task_status": "",
             }
 
-            if human_response:
-                state = Command(resume=message)
+        if human_response:
+            state = Command(resume=message)
 
-            print("state input => ", state)
-            async for chunk in graph.astream(state, thread_cfg, stream_mode=["updates", "custom"]):
-                if await request.is_disconnected():
-                    break
+        print("state input => ", state)
+        async for chunk in graph.astream(state, thread_cfg, stream_mode=["messages", "updates", "custom"]):
+            if await request.is_disconnected():
+                break
 
-                stream_type, stream_data = chunk
+            stream_type, stream_data = chunk
 
-                sc = StreamChunk.from_chunk(
-                    stream_type=stream_type,
-                    stream_data=stream_data,
-                    provider_id=provider_id,
-                    thread_id=chat_id,
-                    db_current_message=None
-                )
+            if stream_type == "messages":
+                message_chunk = stream_data[0]
+                metadata = stream_data[1]
+                node_name = metadata.get('langgraph_node')
 
-                try:
-                    print("\n\n","=="*20)
-                    node_name = next(iter(stream_data.keys()))
-                    print("AGENTIC : messagesss ==> ",stream_data[node_name]['messages'])
-                    print("=="*20,"\n\n")
-                except:
-                    print("\n\n","=ERROR="*20)
-                    node_name = next(iter(stream_data.keys()))
-                    print("node name : ",node_name)
-                    print("data : ",stream_data)
-                    print("=="*20,"\n\n")                
-
-                try:
-                    print_stream_debug(stream_data)
-                except BaseException:
-                    pass
-
-                
-                try:
-                    message_embedding = embedding_model.embed_documents([sc.message])[0]
-                except Exception as e:
-                    print("Embedding Error:", str(e))
-                
-                try:
-                    await db.add_message(
-                        stream_type=sc.stream_type,
-                        provider_id=sc.provider_id,
-                        thread_id=sc.thread_id,
-                        query_id=query_id,
-                        role=sc.role or "unknown",
-                        message=sc.message,
-                        node=sc.node,
-                        reason=sc.reason or "",
-                        current_messages=sc.current_messages or [],
-                        tool_output=sc.tool_output,
-                        next_node=sc.next_node,
-                        type_=sc.type_ or "unknown",
-                        params=sc.params,
-                        next_type=sc.next_type,
-                        embedding_vector=message_embedding,
-                        usage=sc.usage,
-                        status=sc.status or "started",
-                        total_token=sc.total_token,
-                        total_cost=sc.total_cost,
-                        data=sc.data
+                if node_name and message_chunk.content:
+                    sc = StreamChunk(
+                        stream_type="messages",
+                        provider_id=provider_id,
+                        thread_id=chat_id,
+                        role="ai_message",
+                        node=node_name,
+                        message=message_chunk.content,
+                        status="streaming"
                     )
-                except Exception as e:
-                    print("⚠️ => Failed to save stream chunk:", e)
+                    payload = Serialization.safe_json_dumps(sc.model_dump(mode="python"))
+                    yield f"event: delta\ndata: {payload}\n\n"
+                continue
 
-                print("increment usage : ", sc.total_cost, sc.total_token, provider_id)
+            sc = StreamChunk.from_chunk(
+                stream_type=stream_type,
+                stream_data=stream_data,
+                provider_id=provider_id,
+                thread_id=chat_id,
+                db_current_message=None
+            )
 
-                await db.increment_billing_usage(
-                    provider_id=provider_id, chat_tokens=sc.total_token, chat_cost=sc.total_cost)
+            try:
+                print("\n\n","=="*20)
+                node_name = next(iter(stream_data.keys()))
+                print("AGENTIC : messagesss ==> ",stream_data[node_name]['messages'])
+                print("=="*20,"\n\n")
+            except:
+                print("\n\n","=ERROR="*20)
+                node_name = next(iter(stream_data.keys()))
+                print("node name : ",node_name)
+                print("data : ",stream_data)
+                print("=="*20,"\n\n")                
 
-                payload = Serialization.safe_json_dumps(sc.model_dump(mode="python"))
+            try:
+                print_stream_debug(stream_data)
+            except BaseException:
+                pass
 
-                yield f"event: delta\ndata: {payload}\n\n"
+            
+            try:
+                message_embedding = embedding_model.embed_documents([sc.message])[0]
+            except Exception as e:
+                print("Embedding Error:", str(e))
+            
+            try:
+                await db.add_message(
+                    stream_type=sc.stream_type,
+                    provider_id=sc.provider_id,
+                    thread_id=sc.thread_id,
+                    query_id=query_id,
+                    role=sc.role or "unknown",
+                    message=sc.message,
+                    node=sc.node,
+                    reason=sc.reason or "",
+                    current_messages=sc.current_messages or [],
+                    tool_output=sc.tool_output,
+                    next_node=sc.next_node,
+                    type_=sc.type_ or "unknown",
+                    params=sc.params,
+                    next_type=sc.next_type,
+                    embedding_vector=message_embedding,
+                    usage=sc.usage,
+                    status=sc.status or "started",
+                    total_token=sc.total_token,
+                    total_cost=sc.total_cost,
+                    data=sc.data
+                )
+            except Exception as e:
+                print("⚠️ => Failed to save stream chunk:", e)
+
+            print("increment usage : ", sc.total_cost, sc.total_token, provider_id)
+
+            await db.increment_billing_usage(
+                provider_id=provider_id, chat_tokens=sc.total_token, chat_cost=sc.total_cost)
+
+            payload = Serialization.safe_json_dumps(sc.model_dump(mode="python"))
+
+            yield f"event: delta\ndata: {payload}\n\n"
 
     return StreamingResponse(
         event_gen(),
