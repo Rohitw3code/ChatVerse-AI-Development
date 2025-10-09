@@ -223,8 +223,11 @@ async def send_message_stream(
                     pass
 
                 
-                message_embedding = embedding_model.embed_documents([sc.message])[0]
-
+                try:
+                    message_embedding = embedding_model.embed_documents([sc.message])[0]
+                except Exception as e:
+                    print("Embedding Error:", str(e))
+                
                 try:
                     await db.add_message(
                         stream_type=sc.stream_type,
