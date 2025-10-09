@@ -203,7 +203,7 @@ def task_dispatcher(
                     "reason": response.reason,
                     "provider_id": state.get("provider_id"),
                     "node": node_name,
-                    "next_node": "END",
+                    "next_node": "final_answer_node",
                     "type": "thinker",
                     "next_type": "END",
                     "usages": usages_data,

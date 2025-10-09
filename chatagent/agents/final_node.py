@@ -43,7 +43,7 @@ class FinalAnswerAgent:
                 "current_message": [final_answer],
                 "reason": reason_text,
                 "provider_id": state.get("provider_id"),
-                "next_node": "end",
+                "next_node": "__end__",
                 "type": "thinker",
                 "next_type": "end",
                 "usages": usages_data,
