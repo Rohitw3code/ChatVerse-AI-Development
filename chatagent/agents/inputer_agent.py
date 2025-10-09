@@ -14,9 +14,8 @@ class InputRouter:
     class Router(BaseModel):
         next: Literal["search_agent_node", "finish"]
         final_answer: Optional[str] = Field(
-            None, description="Reply to the user. For actionable tasks, start with 'I will help you do this: {task}'."
+            None, description="Reply to the user. For actionable tasks, start with I will help you do this {task} and describe the plan. first step if final answer then just answer the question in propery format."
         )
-        meta: Optional[str] = Field(None, description="Short reasoning tag.")
 
     def __init__(self, llm):
         self.llm = llm
