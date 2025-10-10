@@ -199,7 +199,15 @@ async def send_message_stream(
 
             if stream_type == "messages":
                 message_chunk = stream_data[0]
+                print("\n\n\n")
+                print("---- ","--start---","-----")
+
+                print("message chunk : ",message_chunk)
                 metadata = stream_data[1]
+                print("meta data : ",metadata)
+
+                print("---- ","--end---","-----")
+                print("\n\n\n")
                 node_name = metadata.get('langgraph_node')
 
                 if node_name and message_chunk.content:
