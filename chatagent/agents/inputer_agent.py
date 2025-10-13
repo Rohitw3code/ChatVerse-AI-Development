@@ -30,12 +30,7 @@ class InputRouter:
                 - Use `finish` for normal chat, factual Q&A, code help, or anything you can handle directly.
                 - Prefer `finish` if unclear, unsafe, or self-referential.
                 - If actionable, reply must start with: "I will help you do this: ..."
-
-                Return valid JSON:
-                {{"next": "search_agent_node" | "finish", "final_answer": "...", "meta": "<optional>"}}
-
-                User Input:
-                {{input}}
+                - Always provide a final_answer or meta explanation. if actionable, outline the plan briefly. no longer than 50 words.
             """
         )
 
@@ -54,8 +49,6 @@ class InputRouter:
             else:
                 sanitized_messages.append(msg)
             
-        print(">>> ",self.router_prompt.format(input=state["input"]))
-
         system = SystemMessage(content=self.router_prompt.format(input=state["input"]))
         messages = [system, *sanitized_messages]
 
@@ -64,10 +57,6 @@ class InputRouter:
 
         usages_data = usages(cb)
         ai_message = AIMessage(content=decision.final_answer or decision.meta or "")
-
-        # print("\n======== Decision ========")
-        # print(decision)
-        # print("==========================\n")
 
         common_update = {
             "input": state["input"],

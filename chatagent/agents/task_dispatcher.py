@@ -39,6 +39,7 @@ def task_dispatcher(
             <rule id="3">Only select 'NEXT_TASK' if the current task is fully complete and you must proceed to the next plan.</rule>
             <rule id="4">You MUST ONLY select 'END' when the `remaining_plans` list is explicitly empty.</rule>
             <rule id="5">If after 1–2 attempts the AI keeps responding that there are no available tools, no capabilities, or that it cannot do the task, you MUST select 'END' to avoid infinite recursion.</rule>
+            <rule id="6">Do not write too long write in brifly wihtout revealing the node name </rule>
         </instructions>
         <available_nodes>
             {registry.prompt_block("Supervisor")}

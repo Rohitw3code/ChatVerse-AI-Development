@@ -36,6 +36,7 @@ def make_supervisor_node(
             <rule id="2">If the task is incomplete and a previous supervisor can help, select 'BACK' to escalate.</rule>
             <rule id="3">If the current task is fully completed, select 'NEXT_TASK' to get the next plan from the replanner.</rule>
             <rule id="4">If no available node can handle the request, you must select 'BACK'.</rule>
+            <rule id="5">write in short the reason for your choice in the "reason" field, never mention the next node name here or any internal state talk like human approch</rule>
         </instructions>
         <available_nodes>{registry.prompt_block("Supervisor")}</available_nodes>
         <allowed_choices>The "next" value must be one of the following exact strings: {members}</allowed_choices>
