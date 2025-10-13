@@ -204,7 +204,7 @@ async def send_message_stream(
 
                 # print("message chunk : ",message_chunk)
                 metadata = stream_data[1]
-                # print("meta data : ",metadata)
+                print("meta data : ",metadata)
 
                 # print("---- ","--end---","-----")
                 # print("\n\n\n")

@@ -65,9 +65,9 @@ class InputRouter:
         usages_data = usages(cb)
         ai_message = AIMessage(content=decision.final_answer or decision.meta or "")
 
-        print("\n======== Decision ========")
-        print(decision)
-        print("==========================\n")
+        # print("\n======== Decision ========")
+        # print(decision)
+        # print("==========================\n")
 
         common_update = {
             "input": state["input"],
