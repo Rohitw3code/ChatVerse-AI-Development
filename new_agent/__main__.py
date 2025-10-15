@@ -1,6 +1,6 @@
 """
-Main entry point for LangGraph enhanced New Agent Framework
-Allows running as: python -m new_agent
+Main entry point for Enhanced Main Agent System
+Handles direct responses and tool execution with semantic discovery
 """
 
 import asyncio
@@ -10,14 +10,14 @@ import os
 # Add the parent directory to the path to enable imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from .cli_langgraph import main
+from .enhanced_main_cli import main
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n❌ Execution interrupted by user")
+        print("\n❌ Enhanced execution interrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ Unexpected error: {str(e)}")
+        print(f"\n❌ Unexpected error in enhanced system: {str(e)}")
         sys.exit(1)
