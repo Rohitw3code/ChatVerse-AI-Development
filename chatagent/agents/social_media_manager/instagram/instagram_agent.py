@@ -172,5 +172,5 @@ instagram_agent_node = make_agent_tool_node(
         "Use `profile_insight` or `posts_data` only after verifying authentication.\n"
         "4. Always return results clearly and concisely."),
     node_name="instagram_agent_node",
-    parent_node="instagram_manager_node",
+    parent_node="task_dispatcher_node",
 )

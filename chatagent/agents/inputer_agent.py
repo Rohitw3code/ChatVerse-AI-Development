@@ -13,24 +13,32 @@ class InputRouter:
 
     class Router(BaseModel):
         next: Literal["search_agent_node", "finish"]
-        final_answer: Optional[str] = Field(
-            None, description="Reply to the user. For actionable tasks, start with I will help you do this {task} and describe the plan. first step if final answer then just answer the question in propery format."
-        )
 
     def __init__(self, llm):
         self.llm = llm
 
         self.router_prompt = PromptTemplate.from_template(
             """
-                You are Chatverse AI.
+                You are Chatverse AI routing assistant.
                 Decide if the user query is **actionable** (needs agents/tools) or **simple** (answer directly).
 
                 Rules:
                 - Use `search_agent_node` for tasks needing actions, planning, search, automation, or workflows.
                 - Use `finish` for normal chat, factual Q&A, code help, or anything you can handle directly.
                 - Prefer `finish` if unclear, unsafe, or self-referential.
-                - If actionable, reply must start with: "I will help you do this: ..."
-                - Always provide a final_answer or meta explanation. if actionable, outline the plan briefly. no longer than 50 words.
+                
+                Only decide the routing - don't generate answers yet.
+            """
+        )
+
+        self.answer_prompt = PromptTemplate.from_template(
+            """
+                You are Chatverse AI.
+                The routing decision is: {decision}
+                
+                Generate an appropriate response:
+                - If decision is 'search_agent_node' (actionable): Start with "I will help you do this:" and outline the plan briefly (max 50 words).
+                - If decision is 'finish' (direct answer): Answer the question clearly and properly formatted.
             """
         )
 
@@ -49,14 +57,33 @@ class InputRouter:
             else:
                 sanitized_messages.append(msg)
             
+        # First LLM call: Decide routing
         system = SystemMessage(content=self.router_prompt.format(input=state["input"]))
         messages = [system, *sanitized_messages]
 
         with get_openai_callback() as cb:
-            decision: self.Router = await self.llm.with_structured_output(self.Router).ainvoke(messages)
+            decision = await self.llm.with_structured_output(self.Router).ainvoke(messages)
 
-        usages_data = usages(cb)
-        ai_message = AIMessage(content=decision.final_answer or decision.meta or "")
+        routing_usages = usages(cb)
+
+        # Second LLM call: Generate appropriate answer based on routing decision (simple text)
+        answer_system = SystemMessage(content=self.answer_prompt.format(decision=decision.next))
+        answer_messages = [answer_system, *sanitized_messages]
+
+        with get_openai_callback() as cb:
+            answer_result = await self.llm.ainvoke(answer_messages)
+
+        answer_usages = usages(cb)
+
+        # Combine usages from both calls
+        combined_usages = {
+            "total_tokens": routing_usages.get("total_tokens", 0) + answer_usages.get("total_tokens", 0),
+            "prompt_tokens": routing_usages.get("prompt_tokens", 0) + answer_usages.get("prompt_tokens", 0),
+            "completion_tokens": routing_usages.get("completion_tokens", 0) + answer_usages.get("completion_tokens", 0),
+            "total_cost": routing_usages.get("total_cost", 0.0) + answer_usages.get("total_cost", 0.0),
+        }
+
+        ai_message = AIMessage(content=answer_result.content)
 
         common_update = {
             "input": state["input"],
@@ -67,7 +94,7 @@ class InputRouter:
             "type": "thinker",
             "plans": state.get("plans", []),
             "current_task": state.get("current_task", "NO TASK"),
-            "usages": usages_data,
+            "usages": combined_usages,
             "tool_output": state.get("tool_output"),
             "max_message": state.get("max_message", 10),
         }

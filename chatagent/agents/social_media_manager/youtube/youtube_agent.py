@@ -49,5 +49,5 @@ youtube_agent_node = make_agent_tool_node(
         "Choose the correct tool based on the user request."
     ),
     node_name="youtube_agent_node",
-    parent_node="youtube_manager_node",
+    parent_node="task_dispatcher_node",
 )

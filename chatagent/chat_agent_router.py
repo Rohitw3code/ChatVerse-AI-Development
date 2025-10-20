@@ -179,7 +179,6 @@ async def send_message_stream(
                 "provider_id": provider_id,
                 "input": message,
                 "max_message": 25,
-                # guardrails
                 "back_count": 0,
                 "max_back": 3,
                 "dispatch_retries": 0,
