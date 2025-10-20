@@ -23,7 +23,25 @@ def task_dispatcher(
     
     node_name = "task_dispatcher"
 
-    system_prompt = f"""<prompt>
+    # Base members for validation - comes from registry
+    members = registry.members()+['final_answer_node']
+
+    def build_system_prompt(available_agents: List[dict]) -> str:
+        """
+        Build system prompt dynamically using agents from state.
+        Falls back to registry if no agents provided.
+        """
+        if available_agents:
+            # Build available_nodes from state agents
+            agent_lines = []
+            for agent in available_agents:
+                agent_lines.append(f"- {agent['name']}: {agent['description']}")
+            available_nodes_block = "\n".join(agent_lines)
+        else:
+            # Fallback to registry
+            available_nodes_block = registry.prompt_block("Supervisor")
+        
+        return f"""<prompt>
         <role>You are {node_name}, an orchestrator supervisor. Your only job is to analyze the current state and route to the correct node to continue the plan. You must not end the process if there are still plans left to execute, unless repeated failures occur.</role>
         <output_format>
             Your response MUST be a single, valid JSON object and nothing else.
@@ -43,17 +61,14 @@ def task_dispatcher(
             <rule id="6">Do not write too long write in brifly wihtout revealing the node name </rule>
         </instructions>
         <available_nodes>
-            {registry.prompt_block("Supervisor")}
+            {available_nodes_block}
         </available_nodes>
         <allowed_choices>
-            The "next" value must be one of the following exact strings: {registry.members() + ['END', 'NEXT_TASK']}
+            The "next" value must be one of the following exact strings: {members + ['END', 'NEXT_TASK']}
         </allowed_choices>
     </prompt>"""
 
-    members = registry.members()+['final_answer_node']
-
     class Router(BaseModel):
-        
         next: str = Field(
             ...,
             description="Exact node name to call next, or 'END' or 'NEXT_TASK' to handle special commands.")
@@ -71,10 +86,15 @@ def task_dispatcher(
                 return "END"
             return v
 
-    def task_dispatcher_node(state: State) -> Command[Literal[*members]]:
+    def task_dispatcher_node(state: State) -> Command:
         
         remaining_plans = state.get('plans', [])
         current_task = state.get('current_task', '')
+        
+        # Get available agents from state (set by search_agent_node)
+        available_agents = state.get('agents', [])
+
+        print("\n\nAVAILABLE AGENTS IN DISPATCHER : ", available_agents,"\n\n")
 
         # If an agent marked the current task as completed, move to the next task deterministically
         if state.get('task_status') == 'completed':
@@ -154,7 +174,8 @@ def task_dispatcher(
             """
         )
 
-        print("length ==> ",len(state['messages']))
+        # Build dynamic system prompt using agents from state
+        system_prompt = build_system_prompt(available_agents)
 
         messages = [
             SystemMessage(content=system_prompt),

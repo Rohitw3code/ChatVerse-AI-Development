@@ -69,7 +69,7 @@ main_register.add(
 )
 
 main_register.add(
-    "youtube_agent_node", research_agent_node, "agent",
+    "youtube_agent_node", youtube_agent_node, "agent",
     "Youtube agent to handle all tasks related to YouTube such as fetching channel details, video management, comments, and analytics. Always trigger if the query is YouTube-related."
 )
 
