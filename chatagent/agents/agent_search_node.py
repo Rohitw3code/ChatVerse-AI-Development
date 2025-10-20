@@ -1,91 +1,117 @@
 from typing_extensions import Literal
-from langchain_core.messages import AIMessage, HumanMessage,SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.types import Command
 from chatagent.config.init import llm
 from chatagent.utils import State, usages
 from langchain_community.callbacks import get_openai_callback
 from pydantic import BaseModel, Field
+from typing import List
 from langchain_community.callbacks.openai_info import OpenAICallbackHandler
+
 callback_handler = OpenAICallbackHandler()
 
 
-class AgentCheck(BaseModel):
-    recheck: bool = Field(
-        description="You decide based on the given agent list and its description is it sufficient to handle the user query and it does not required to recheck with more agents then return False, if you think the given agent list is not sufficient to handle the user query and it required to recheck with more agents then return True"
+class AgentSelection(BaseModel):
+    """Model for selecting specific agents needed for the query"""
+    selected_agent_names: List[str] = Field(
+        description="List of exact agent names (from the provided list) that are required to handle the user query. Only include agents that are explicitly needed. Return empty list if no suitable agents found."
+    )
+    sufficient: bool = Field(
+        description="True if the selected agents can fully handle the user query. False if no suitable agents were found or if the available agents cannot handle the request."
     )
     reason: str = Field(
-        description="if False do just retrun False, if True explain why the given agent list is not sufficient to handle the user query , never mention the agent names in the reason just explain the reason or approach in few words"
+        description="Brief explanation of why these agents were selected and whether they are sufficient to handle the query"
     )
 
 
 def search_agent_node():
-    SYSTEM_PROMPT = """
-        You are the *Agent Availability Evaluator*.
+    AGENT_SELECTION_PROMPT = """You are an Agent Selector. Analyze the query and select the required agent names.
 
-        Your ONLY responsibility is to check if there is at least one relevant agent available 
-        from the provided agent list that can handle the given user request.
+Rules:
+- Select agents explicitly needed for the query
+- Multi-step tasks need multiple agents (e.g., "search and email" needs both research and email agents)
+- Return exact agent names from the list
+- Set sufficient=True if selected agents can handle the query
+- Set sufficient=False if no suitable agents found or agents cannot handle the request
 
-        You do NOT need to understand or generate a solution for the request.  
-        You do NOT need to ask for missing data or clarify the task.  
-        You ONLY check for *availability* of a relevant agent.
-
-        Rules:
-        - If there is at least one agent whose description matches or relates to the user’s request,
-        set `recheck = False` (sufficient agents found).
-        - If no listed agent appears relevant or capable, set `recheck = True`.
-        - Never mention agent names in the reason.
-        - If `recheck = False`, the system will automatically route to the planner node, 
-        which will handle content generation and clarification later.
-        - If `recheck = True`, explain briefly why the current list seems insufficient (e.g., “no matching tools found”).
-
-        Output must strictly follow:
-        - `recheck`: True or False
-        - `reason`: concise reason (e.g., “sufficient agents found” or “no matching tools”)
-    """
+Example:
+Query: "find jobs and email results" → select [research, email] agents, sufficient=True
+Query: "draft an email" → select [email] agent, sufficient=True
+Query: "launch rocket to Mars" → select [], sufficient=False (no capable agents)
+"""
 
     def search_agent(state: State) -> Command[Literal["search_agent_node", "planner_node", "__end__"]]:
         
         from chatagent.agents.agent_retrival import get_relevant_agents
 
-        agents = get_relevant_agents(state["input"], top_k=5)
+        # Step 1: Get relevant agents using embedding similarity
+        all_relevant_agents = get_relevant_agents(state["input"], top_k=3)  # Reduced from 5 to 3
 
-        print("\n\nAgents Retrieved for Search Agent Node:", agents,"\n\n")
-
+        print("\n\n=== AGENT SEARCH DEBUG ===")
+        print(f"Step 1 - Agents from embedding search (top_k=3):", all_relevant_agents)
+        
+        # Step 2: Use LLM to filter and select only the specific agents needed
         agent_search_count = state.get("agent_search_count", 0)
-
+        
+        # Build minimal conversation context (only last 2 messages, max 200 chars each)
+        conversation_history = ""
+        recent_messages = state.get("messages", [])[-2:]  # Only last 2 messages
+        if recent_messages:
+            for msg in recent_messages:
+                if isinstance(msg, (HumanMessage, AIMessage)):
+                    role = "User" if isinstance(msg, HumanMessage) else "AI"
+                    content = str(msg.content)[:200]  # Truncate to 200 chars
+                    conversation_history += f"{role}: {content}\n"
+        
+        # Build agent list with their full descriptions (let LLM decide, no hardcoding)
+        agent_summaries = [f"- {agent['name']}: {agent['description']}" for agent in all_relevant_agents]
+        
         with get_openai_callback() as cb:
-            result: AgentCheck = llm.with_structured_output(AgentCheck).invoke(
+            # Filter agents using LLM - fully agentic decision making
+            prompt_content = (
+                "Available agents:\n" + "\n".join(agent_summaries) +
+                (f"\n\nRecent context:\n{conversation_history}" if conversation_history else "") +
+                f"\n\nUser query: {state['input']}\n\n" +
+                "Analyze the query, select the exact agent names needed, and indicate if they are sufficient."
+            )
+            
+            agent_selection: AgentSelection = llm.with_structured_output(AgentSelection).invoke(
                 [
-                    SystemMessage(content=SYSTEM_PROMPT),
-                    HumanMessage(
-                        content=(
-                            "Available agents and tools:\n"
-                            + "\n".join([f"- {agent['name']}: {agent['description']}" for agent in agents])
-                            + f"\n\nUser Query: {state['input']}\n\n"
-                            "Decide if any of these agents can handle the request. "
-                            "If yes, return recheck=False; if not, return recheck=True."
-                        )
-                    ),
+                    SystemMessage(content=AGENT_SELECTION_PROMPT),
+                    HumanMessage(content=prompt_content)
                 ]
             )
         usages_data = usages(cb)
-
-
-        print(f"Agent Searcher: {result} and Agents: {agents}")
+        
+        # Filter agents to only include selected ones
+        selected_agents = [
+            agent for agent in all_relevant_agents 
+            if agent['name'] in agent_selection.selected_agent_names
+        ]
+        
+        # If no agents were selected, fall back to all relevant agents
+        if not selected_agents:
+            selected_agents = all_relevant_agents
+            print(f"⚠️  No agents selected by LLM, using all relevant agents")
+        
+        print(f"Step 2 - LLM filtered agents: {[a['name'] for a in selected_agents]}")
+        print(f"Step 2 - Selection reason: {agent_selection.reason}")
+        print(f"Step 2 - Sufficient: {agent_selection.sufficient}")
+        print("=== END AGENT SEARCH DEBUG ===\n\n")
 
         # **Condition 1: Agents are sufficient, proceed to planner.**
-        if result.recheck is False:
+        if agent_selection.sufficient:
             return Command(
                 update={
                     "input": state["input"],
-                    "messages": [AIMessage(content=f"Sufficient agents found: {result.reason}")],
-                    "current_message": [AIMessage(content=f"{result.reason}")],
+                    "messages": [AIMessage(content=f"Agents found: {agent_selection.reason}")],
+                    "current_message": [AIMessage(content=f"{agent_selection.reason}")],
                     "reason": "Sufficient agents found to proceed with planning.",
                     "provider_id": state.get("provider_id"),
                     "next_node": "planner_node",
                     "type": "agent_searcher",
                     "next_type": "thinker",
-                    "agents": agents,
+                    "agents": selected_agents,
                     "usages": usages_data,
                     "status": "success",
                     "current_task": state.get("current_task", "NO TASK"),
@@ -96,18 +122,18 @@ def search_agent_node():
             )
 
         # **Condition 2: Agents are insufficient, but we can still retry.**
-        if result.recheck is True and agent_search_count < 3:
+        if not agent_selection.sufficient and agent_search_count < 3:
             return Command(
                 update={
                     "input": state["input"],
-                    "messages": [AIMessage(content=f"Retrying agent search: {result.reason}")],
-                    "current_message": [AIMessage(content=f"{result.reason}")],
-                    "reason": result.reason,
+                    "messages": [AIMessage(content=f"Retrying agent search: {agent_selection.reason}")],
+                    "current_message": [AIMessage(content=f"{agent_selection.reason}")],
+                    "reason": agent_selection.reason,
                     "agent_search_count": agent_search_count + 1,
                     "provider_id": state.get("provider_id"),
                     "next_node": "search_agent_node",
                     "type": "agent_searcher",
-                    "agents": agents,
+                    "agents": selected_agents,
                     "next_type": "agent_searcher",
                     "usages": usages_data,
                     "status": "success",
@@ -119,7 +145,7 @@ def search_agent_node():
             )
         
         # **Condition 3: Agents are insufficient and we are out of retries. End the process.**
-        final_reason = f"I am not capable of handling this request. After multiple searches, a suitable agent could not be found. Reason: {result.reason}"
+        final_reason = f"I am not capable of handling this request. After multiple searches, suitable agents could not be found. Reason: {agent_selection.reason}"
         return Command(
             update={
                 "input": state["input"],
@@ -130,7 +156,7 @@ def search_agent_node():
                 "next_node": "__end__",
                 "type": "agent_searcher",
                 "next_type": "end",
-                "agents": agents,
+                "agents": selected_agents,
                 "usages": usages_data,
                 "status": "fail",
                 "current_task": state.get("current_task", "NO TASK"),

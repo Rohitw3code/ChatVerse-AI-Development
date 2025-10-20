@@ -203,7 +203,7 @@ async def send_message_stream(
 
                 # print("message chunk : ",message_chunk)
                 metadata = stream_data[1]
-                print("meta data : ",metadata)
+                # print("meta data : ",metadata)
 
                 # print("---- ","--end---","-----")
                 # print("\n\n\n")
@@ -219,7 +219,7 @@ async def send_message_stream(
                         message=message_chunk.content,
                         status="streaming"
                     )
-                    print("message ---> : ",sc.message)
+                    # print("message ---> : ",sc.message)
                     payload = Serialization.safe_json_dumps(sc.model_dump(mode="python"))
                     yield f"event: delta\ndata: {payload}\n\n"
                 continue

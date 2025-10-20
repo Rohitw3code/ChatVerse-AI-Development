@@ -108,11 +108,20 @@ def make_agent_tool_node(
                             # Failsafe for unusual callables that inspect can't handle.
                             print(f"Warning: Could not inspect signature for tool {name}. Proceeding without state injection.")
                     # <<< END OF ROBUST FIX >>>
+                    
+                    # Wrap tool execution in try-except to handle failures gracefully
+                    try:
+                        out = await tool_to_run.ainvoke(
+                            tool_input, config={"callbacks": [callback_handler]}
+                        )
+                        print("\n\ntool calling : ", out)
+                    except Exception as e:
+                        # Handle tool execution failures gracefully
+                        error_message = f"Tool '{name}' failed: {type(e).__name__}: {str(e)}"
+                        print(f"\n\nTool execution error: {error_message}")
                         
-                    out = await tool_to_run.ainvoke(
-                        tool_input, config={"callbacks": [callback_handler]}
-                    )
-                    print("\n\ntool calling : ", out)
+                        # Return plain text error message for Gmail and other tool failures
+                        out = f"❌ Error executing {name}: {type(e).__name__} - {str(e)}"
                 else:
                     out = {"error": "bad tool name, retry"}
 

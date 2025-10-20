@@ -13,6 +13,7 @@ class InputRouter:
 
     class Router(BaseModel):
         next: Literal["search_agent_node", "finish"]
+        reason: str = Field(description="Short message to the user as if you're starting to work on their request (max 15 words). Examples: 'I'll help you with this task.', 'Let me answer that for you.'")
 
     def __init__(self, llm):
         self.llm = llm
@@ -66,24 +67,8 @@ class InputRouter:
 
         routing_usages = usages(cb)
 
-        # Second LLM call: Generate appropriate answer based on routing decision (simple text)
-        answer_system = SystemMessage(content=self.answer_prompt.format(decision=decision.next))
-        answer_messages = [answer_system, *sanitized_messages]
-
-        with get_openai_callback() as cb:
-            answer_result = await self.llm.ainvoke(answer_messages)
-
-        answer_usages = usages(cb)
-
-        # Combine usages from both calls
-        combined_usages = {
-            "total_tokens": routing_usages.get("total_tokens", 0) + answer_usages.get("total_tokens", 0),
-            "prompt_tokens": routing_usages.get("prompt_tokens", 0) + answer_usages.get("prompt_tokens", 0),
-            "completion_tokens": routing_usages.get("completion_tokens", 0) + answer_usages.get("completion_tokens", 0),
-            "total_cost": routing_usages.get("total_cost", 0.0) + answer_usages.get("total_cost", 0.0),
-        }
-
-        ai_message = AIMessage(content=answer_result.content)
+        # Use the reason from the router decision
+        ai_message = AIMessage(content=decision.reason)
 
         common_update = {
             "input": state["input"],
@@ -94,7 +79,7 @@ class InputRouter:
             "type": "thinker",
             "plans": state.get("plans", []),
             "current_task": state.get("current_task", "NO TASK"),
-            "usages": combined_usages,
+            "usages": routing_usages,
             "tool_output": state.get("tool_output"),
             "max_message": state.get("max_message", 10),
         }
