@@ -34,7 +34,7 @@ def make_supervisor_node(
     </instructions>
     <available_nodes>{registry.prompt_block("Supervisor")}</available_nodes>
     <allowed_choices>{members}</allowed_choices>
-</prompt>"""
+    </prompt>"""
 
     class Router(BaseModel):
         """Response model for supervisor routing decisions."""

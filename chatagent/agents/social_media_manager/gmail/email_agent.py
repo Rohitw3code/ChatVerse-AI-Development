@@ -417,7 +417,6 @@ def fetch_unread_gmail(message_count: int = 5, config: RunnableConfig = None):
             "User has not autheticated the gmail ask to firstly connect your gmail"
         )
 
-    print("unread : ", gmail_data)
 
     log_tool_event(
         tool_name="fetch_unread_gmail",
