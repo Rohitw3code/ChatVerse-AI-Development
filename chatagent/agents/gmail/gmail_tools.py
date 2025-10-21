@@ -414,8 +414,8 @@ def ask_human(
     return f"AI : {params}\nHuman : {user_input}"
 
 
-@tool("gmail_error")
-def gmail_error(params: str = Field(..., description="error reason")) -> str:
+@tool("login_to_gmail")
+def login_to_gmail(params: str = Field(..., description="error reason")) -> str:
     """
     if user has not connected the gmail, user ask to connect the gmail account
     if gmail connection issue occurs, ask the user to reconnect the gmail account
@@ -446,5 +446,5 @@ def get_gmail_tool_registry() -> NodeRegistry:
     gmail_tool_register.add("draft_gmail", draft_gmail, "tool")
     gmail_tool_register.add("send_gmail", send_gmail, "tool")
     gmail_tool_register.add("ask_human", ask_human, "tool")
-    gmail_tool_register.add("gmail_error", gmail_error, "tool")
+    gmail_tool_register.add("login_to_gmail", login_to_gmail, "tool")
     return gmail_tool_register

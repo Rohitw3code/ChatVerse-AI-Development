@@ -24,18 +24,27 @@ def make_agent_tool_node(
     members: NodeRegistry,
     prompt: str | None = None,
     node_name: str = "agent_tool_node",
-    parent_node: str = "main_supervisor",
-    handoff: bool = False,
+    parent_node: str = "task_dispatcher"
 ):
+
+    print("agent ===> ", members.prompt_block('agent'))
 
     system_prompt = (
         "You are an agent capable of choosing and using various tools to complete tasks.\n"
         f"{members.prompt_block('agent')}\n\n"
-        "If a tool does not return useful data, you may retry the SAME tool up to 3 times max"
+        "AUTHENTICATION & CONNECTION HANDLING:\n"
+        "- If you encounter authentication/connection errors (token expired, not connected, not authenticated), "
+        "FIRST check if there's a verification/login/connection tool available (e.g., 'verify_gmail_connection', "
+        "'instagram_auth_verification') and call it to attempt reconnection.\n"
+        "- If the verification tool indicates the account is NOT connected and there's no automatic login tool, "
+        "respond with: 'Need to login first' and do NOT call any other tools.\n"
+        "- If reconnection succeeds, retry the original task.\n\n"
+        "RETRY LOGIC:\n"
+        "- If a tool does not return useful data, you may retry the SAME tool up to 3 times max "
         "with slightly different parameter values to improve the results.\n"
-        "Always state which tool you used and summarize the final result.\n"
-        "If a tool still fails after retries, continue gracefully or report failure.\n"
-        "If no tool is needed, respond normally.\n"
+        "- Always state which tool you used and summarize the final result.\n"
+        "- If a tool still fails after retries, continue gracefully or report failure.\n"
+        "- If no tool is needed, respond normally.\n"
     )
 
     async def agent_tool_node(state: State) -> Command[Literal[parent_node]]:
@@ -67,6 +76,8 @@ def make_agent_tool_node(
         
         messages = [SystemMessage(content=system_prompt), *state["messages"]]        
         
+        print("agent tool runs : ", members.runs())
+
         with get_openai_callback() as cb:
             print("members tools : ", members.runs())
             ai_msg: AIMessage = await stream_llm.bind_tools(members.runs()).ainvoke(
@@ -89,41 +100,57 @@ def make_agent_tool_node(
                 if name in tools:
                     tool_to_run = tools[name]
                     tool_input = {**args}
-                    
-                    # <<< START OF ROBUST FIX >>>
-                    # Safely find the actual callable to inspect its signature.
                     func_to_inspect = None
                     if hasattr(tool_to_run, 'func') and callable(tool_to_run.func):
-                        # Handles standard LangChain Tool objects
                         func_to_inspect = tool_to_run.func
                     elif callable(tool_to_run):
-                        # Handles raw functions or other callable objects (like graph nodes)
                         func_to_inspect = tool_to_run
 
-                    # Only inspect if we found a valid callable function.
                     if func_to_inspect:
                         try:
                             sig = inspect.signature(func_to_inspect)
                             if 'state' in sig.parameters:
                                 tool_input['state'] = state
                         except TypeError:
-                            # Failsafe for unusual callables that inspect can't handle.
                             print(f"Warning: Could not inspect signature for tool {name}. Proceeding without state injection.")
-                    # <<< END OF ROBUST FIX >>>
-                    
-                    # Wrap tool execution in try-except to handle failures gracefully
                     try:
                         out = await tool_to_run.ainvoke(
                             tool_input, config={"callbacks": [callback_handler]}
                         )
                         print("\n\ntool calling : ", out)
+                        if isinstance(out, str):
+                            auth_keywords = ['not connected', 'not authenticated', 'token expired', 
+                                           'authentication required', 'need to connect', 'account is not connected']
+                            out_lower = out.lower()
+                            
+                            if any(keyword in out_lower for keyword in auth_keywords):
+                                verification_tools = {
+                                    'gmail': 'verify_gmail_connection',
+                                    'instagram': 'instagram_auth_verification',
+                                    'email': 'verify_gmail_connection'
+                                }
+                                platform = None
+                                for plat, tool_name in verification_tools.items():
+                                    if plat in name.lower() or plat in out_lower:
+                                        platform = plat
+                                        break
+                                if platform and verification_tools.get(platform) in tools:
+                                    out = f"{out}\n\n💡 Hint: Try calling '{verification_tools[platform]}' tool first to check/reconnect the {platform} account."
+                                else:
+                                    out = f"{out}\n\n⚠️ Need to login first - no automatic connection tool available."
+                                    
                     except Exception as e:
-                        # Handle tool execution failures gracefully
                         error_message = f"Tool '{name}' failed: {type(e).__name__}: {str(e)}"
                         print(f"\n\nTool execution error: {error_message}")
                         
-                        # Return plain text error message for Gmail and other tool failures
-                        out = f"❌ Error executing {name}: {type(e).__name__} - {str(e)}"
+                        error_str = str(e).lower()
+                        auth_error_keywords = ['authentication', 'unauthorized', 'token', 'credentials', 
+                                              'not authenticated', 'access denied', 'permission denied']
+                        
+                        if any(keyword in error_str for keyword in auth_error_keywords):
+                            out = f"❌ Authentication Error: {type(e).__name__} - {str(e)}\n\n⚠️ Need to login first."
+                        else:
+                            out = f"❌ Error executing {name}: {type(e).__name__} - {str(e)}"
                 else:
                     out = {"error": "bad tool name, retry"}
 

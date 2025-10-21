@@ -72,7 +72,21 @@ class NodeRegistry:
     def prompt_block(self, func_type: str = "agent") -> str:
         # Build a prompt listing from docstrings only
         lines = []
+        # print("self.nodes:", self._nodes)
         for s in self._nodes.values():
-            doc = s.prompt
+            # Try to get description from multiple sources
+            if s.prompt:
+                # Use explicit prompt if provided
+                doc = s.prompt
+            elif hasattr(s.run, 'description'):
+                # For StructuredTool objects, use their description attribute
+                doc = s.run.description
+            elif hasattr(s.run, '__doc__') and s.run.__doc__:
+                # Fall back to function docstring
+                doc = s.run.__doc__.strip()
+            else:
+                # No description available
+                doc = "(no description)"
+            
             lines.append(f"- {s.name} [{s.type}]: {doc}")
         return "\n".join(lines)

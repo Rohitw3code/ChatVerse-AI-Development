@@ -21,7 +21,7 @@ AGENTS_CONFIG: List[AgentConfig] = [
     {
         "name": "gmail_agent_node",
         "description": (
-            "Email agent: draft emails, send emails, read Gmail messages, handle email communication. "
+            "Email agent: draft emails, send emails, read Gmail messages, handle email communication , login to gmail"
             "Keywords: email, gmail, send, draft, mail, message, compose, login to gmail"
         ),
         "prompt": (

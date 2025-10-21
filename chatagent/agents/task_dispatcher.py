@@ -41,9 +41,10 @@ def task_dispatcher(registry: NodeRegistry):
                     <rule id="1">Analyze `current_task` and `remaining_plans` to decide the next step.</rule>
                     <rule id="2">Route to the most appropriate node from `<available_nodes>` for the current task.</rule>
                     <rule id="3">Select 'NEXT_TASK' only when the current task is fully complete.</rule>
-                    <rule id="4">Select 'END' ONLY when `remaining_plans` is empty.</rule>
-                    <rule id="5">If repeated failures occur (agent reports no capabilities), select 'END' to prevent infinite loops.</rule>
-                    <rule id="6">Keep reason brief and user-friendly without revealing internal node names.</rule>
+                    <rule id="4">Select 'END' ONLY when `remaining_plans` is empty or task cannot be completed.</rule>
+                    <rule id="5">If authentication or connection errors occur, route back to the same agent once to retry.</rule>
+                    <rule id="6">If repeated failures occur (agent reports no capabilities or auth issues), select 'END' to prevent infinite loops.</rule>
+                    <rule id="7">Keep reason brief and user-friendly without revealing internal node names.</rule>
                 </instructions>
                 <available_nodes>
             {available_nodes_block}
@@ -113,30 +114,81 @@ def task_dispatcher(registry: NodeRegistry):
                 reset_task_status=True
             )
 
+        # Check for authentication/connection errors from previous agent
+        last_messages = state.get('messages', [])
+        task_failed_due_to_auth = False
+        failed_platform = None
+        
+        if last_messages:
+            last_content = str(last_messages[-1].content).lower() if last_messages else ""
+            # Check for authentication/connection related errors
+            auth_keywords = ['not connected', 'not authenticated', 'authentication', 'connect your', 
+                           'token', 'login', 'connect', 'account is not connected']
+            
+            if any(keyword in last_content for keyword in auth_keywords):
+                task_failed_due_to_auth = True
+                # Try to identify which platform
+                if 'gmail' in last_content or 'email' in last_content:
+                    failed_platform = 'gmail'
+                elif 'instagram' in last_content or 'insta' in last_content:
+                    failed_platform = 'instagram'
+                elif 'youtube' in last_content:
+                    failed_platform = 'youtube'
+        
         # Retry logic with guardrails
         dispatch_retries = state.get('dispatch_retries', 0)
         max_dispatch_retries = state.get('max_dispatch_retries', 3)
         new_dispatch_retries = dispatch_retries + 1
 
-        # Escalate to replanner after max retries
-        if new_dispatch_retries >= max_dispatch_retries:
-            replan_msg = AIMessage(
-                content="Multiple routing attempts failed. Sending to replanner to adjust the plan."
+        # Handle authentication failures - ask user to connect or end gracefully
+        if task_failed_due_to_auth and new_dispatch_retries >= 2:
+            auth_fail_msg = AIMessage(
+                content=f"Unable to complete the task. The {failed_platform or 'required'} account is not connected. "
+                        f"Please connect your account and try again, or I can help you with something else."
             )
             return Command(
-                goto="replanner_node",
+                goto="final_answer_node",
                 update={
                     "input": state["input"],
-                    "messages": [replan_msg],
-                    "current_message": [replan_msg],
-                    "reason": replan_msg.content,
+                    "messages": [auth_fail_msg],
+                    "current_message": [auth_fail_msg],
+                    "reason": auth_fail_msg.content,
                     "provider_id": state.get("provider_id"),
                     "node": node_name,
-                    "next_node": "replanner_node",
+                    "next_node": "final_answer_node",
                     "type": "thinker",
-                    "next_type": "thinker",
+                    "next_type": "END",
                     "usages": {},
-                    "status": "replan",
+                    "status": "auth_required",
+                    "plans": state.get("plans", []),
+                    "current_task": current_task or "NO TASK",
+                    "tool_output": state.get("tool_output"),
+                    "max_message": state.get("max_message", 10),
+                    "dispatch_retries": 0,
+                },
+            )
+
+        # End gracefully after max retries (no replanner available)
+        if new_dispatch_retries >= max_dispatch_retries:
+            fail_msg = AIMessage(
+                content="I've tried multiple times but couldn't complete this task. "
+                        "There might be an issue with the request or required permissions. "
+                        "Please try rephrasing your request or provide more details."
+            )
+            return Command(
+                goto="final_answer_node",
+                update={
+                    "input": state["input"],
+                    "messages": [fail_msg],
+                    "current_message": [fail_msg],
+                    "reason": fail_msg.content,
+                    "provider_id": state.get("provider_id"),
+                    "node": node_name,
+                    "next_node": "final_answer_node",
+                    "type": "thinker",
+                    "next_type": "END",
+                    "usages": {},
+                    "status": "max_retries_reached",
                     "plans": state.get("plans", []),
                     "current_task": current_task or "NO TASK",
                     "tool_output": state.get("tool_output"),
