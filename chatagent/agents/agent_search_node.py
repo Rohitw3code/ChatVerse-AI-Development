@@ -26,19 +26,18 @@ class AgentSelection(BaseModel):
 
 def search_agent_node():
     AGENT_SELECTION_PROMPT = """You are an Agent Selector. Analyze the query and select the required agent names.
+        Rules:
+        - Select agents explicitly needed for the query
+        - Multi-step tasks need multiple agents (e.g., "search and email" needs both research and email agents)
+        - Return exact agent names from the list
+        - Set sufficient=True if selected agents can handle the query
+        - Set sufficient=False if no suitable agents found or agents cannot handle the request
 
-Rules:
-- Select agents explicitly needed for the query
-- Multi-step tasks need multiple agents (e.g., "search and email" needs both research and email agents)
-- Return exact agent names from the list
-- Set sufficient=True if selected agents can handle the query
-- Set sufficient=False if no suitable agents found or agents cannot handle the request
-
-Example:
-Query: "find jobs and email results" → select [research, email] agents, sufficient=True
-Query: "draft an email" → select [email] agent, sufficient=True
-Query: "launch rocket to Mars" → select [], sufficient=False (no capable agents)
-"""
+        Example:
+        Query: "find jobs and email results" → select [research, email] agents, sufficient=True
+        Query: "draft an email" → select [email] agent, sufficient=True
+        Query: "launch rocket to Mars" → select [], sufficient=False (no capable agents)
+    """
 
     def search_agent(state: State) -> Command[Literal["search_agent_node", "planner_node", "__end__"]]:
         
