@@ -195,7 +195,7 @@ class Database:
 
     async def increment_billing_usage(self, provider_id: str, chat_tokens: int = 0, chat_cost: float = 0.0):
         """Increment the billing usage for a provider."""
-        print("Incrementing billing usage:", provider_id, chat_tokens, chat_cost)
+        # print("Incrementing billing usage:", provider_id, chat_tokens, chat_cost)
         pool = await self.db_manager.get_pool()
         async with pool.connection() as conn:
             await conn.execute(

@@ -93,7 +93,7 @@ def task_dispatcher(registry: NodeRegistry):
             },
         )
 
-    def task_dispatcher_node(state: State) -> Command[Literal[*members]]:
+    def task_dispatcher_node(state: State) -> Command:
         """Main dispatcher logic that routes tasks and handles completion/retry scenarios."""
         remaining_plans = state.get('plans', [])
         current_task = state.get('current_task', '')
@@ -114,59 +114,10 @@ def task_dispatcher(registry: NodeRegistry):
                 reset_task_status=True
             )
 
-        # Check for authentication/connection errors from previous agent
-        last_messages = state.get('messages', [])
-        task_failed_due_to_auth = False
-        failed_platform = None
-        
-        if last_messages:
-            last_content = str(last_messages[-1].content).lower() if last_messages else ""
-            # Check for authentication/connection related errors
-            auth_keywords = ['not connected', 'not authenticated', 'authentication', 'connect your', 
-                           'token', 'login', 'connect', 'account is not connected']
-            
-            if any(keyword in last_content for keyword in auth_keywords):
-                task_failed_due_to_auth = True
-                # Try to identify which platform
-                if 'gmail' in last_content or 'email' in last_content:
-                    failed_platform = 'gmail'
-                elif 'instagram' in last_content or 'insta' in last_content:
-                    failed_platform = 'instagram'
-                elif 'youtube' in last_content:
-                    failed_platform = 'youtube'
-        
         # Retry logic with guardrails
         dispatch_retries = state.get('dispatch_retries', 0)
         max_dispatch_retries = state.get('max_dispatch_retries', 3)
         new_dispatch_retries = dispatch_retries + 1
-
-        # Handle authentication failures - ask user to connect or end gracefully
-        if task_failed_due_to_auth and new_dispatch_retries >= 2:
-            auth_fail_msg = AIMessage(
-                content=f"Unable to complete the task. The {failed_platform or 'required'} account is not connected. "
-                        f"Please connect your account and try again, or I can help you with something else."
-            )
-            return Command(
-                goto="final_answer_node",
-                update={
-                    "input": state["input"],
-                    "messages": [auth_fail_msg],
-                    "current_message": [auth_fail_msg],
-                    "reason": auth_fail_msg.content,
-                    "provider_id": state.get("provider_id"),
-                    "node": node_name,
-                    "next_node": "final_answer_node",
-                    "type": "thinker",
-                    "next_type": "END",
-                    "usages": {},
-                    "status": "auth_required",
-                    "plans": state.get("plans", []),
-                    "current_task": current_task or "NO TASK",
-                    "tool_output": state.get("tool_output"),
-                    "max_message": state.get("max_message", 10),
-                    "dispatch_retries": 0,
-                },
-            )
 
         # End gracefully after max retries (no replanner available)
         if new_dispatch_retries >= max_dispatch_retries:
@@ -220,7 +171,7 @@ def task_dispatcher(registry: NodeRegistry):
         
         # Invoke LLM with structured output
         system_prompt = _build_system_prompt(available_agents)
-        messages = [SystemMessage(content=system_prompt), prompt_context] + state['messages']
+        messages = [SystemMessage(content=system_prompt), prompt_context] + state.get('messages', [])
 
         with get_openai_callback() as cb:
             try:

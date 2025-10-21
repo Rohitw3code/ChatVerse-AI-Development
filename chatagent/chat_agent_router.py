@@ -235,10 +235,10 @@ async def send_message_stream(
             )
 
             try:
-                print("\n\n","=="*20)
+                # print("\n\n","=="*20)
                 node_name = next(iter(stream_data.keys()))
-                print("AGENTIC : messagesss ==> ",stream_data[node_name]['messages'])
-                print("=="*20,"\n\n")
+                # print("AGENTIC : messagesss ==> ",stream_data[node_name]['messages'])
+                # print("=="*20,"\n\n")
             except:
                 print("\n\n","=ERROR="*20)
                 node_name = next(iter(stream_data.keys()))
@@ -283,7 +283,7 @@ async def send_message_stream(
             except Exception as e:
                 print("⚠️ => Failed to save stream chunk:", e)
 
-            print("increment usage : ", sc.total_cost, sc.total_token, provider_id)
+            # print("increment usage : ", sc.total_cost, sc.total_token, provider_id)
 
             await db.increment_billing_usage(
                 provider_id=provider_id, chat_tokens=sc.total_token, chat_cost=sc.total_cost)

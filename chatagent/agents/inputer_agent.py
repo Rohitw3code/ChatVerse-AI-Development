@@ -24,7 +24,7 @@ class InputRouter:
                 Decide if the user query is **actionable** (needs agents/tools) or **simple** (answer directly).
 
                 Rules:
-                - Use `search_agent_node` for tasks needing actions, planning, search, automation, or workflows , login
+                - Use `search_agent_node` for tasks needing actions, planning, search, automation, or workflows
                 - Use `finish` for normal chat, factual Q&A, code help, or anything you can handle directly.
                 - Prefer `finish` if unclear, unsafe, or self-referential.
                 

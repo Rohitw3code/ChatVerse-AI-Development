@@ -89,7 +89,7 @@ def verify_gmail_connection(config: RunnableConfig):
         )
         return tool_output
     else:
-        tool_output = "Gmail account is not connected ask the user to connect or `END`"
+        tool_output = "Gmail account is not connected ask the user to login to gmail use login gmail tool"
         log_tool_event(
             tool_name="verify_gmail_connection",
             status="failed",
@@ -430,7 +430,6 @@ def login_to_gmail(params: str = Field(..., description="error reason")) -> str:
             "data": {"title": params, "content": ""},
         }
     )
-    print(f"connection state started====> userinput {user_input}")
     return str(user_input)
 
 

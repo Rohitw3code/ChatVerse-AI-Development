@@ -6,7 +6,6 @@ from langgraph.graph import END
 from langgraph.types import Command
 from chatagent.utils import State
 from langchain_core.messages import AIMessage, ToolMessage,SystemMessage
-import inspect
 from typing import Literal
 from langchain_community.callbacks.openai_info import OpenAICallbackHandler
 from chatagent.utils import usages
@@ -30,24 +29,17 @@ def make_agent_tool_node(
     print("agent ===> ", members.prompt_block('agent'))
 
     system_prompt = (
-        "You are an agent capable of choosing and using various tools to complete tasks.\n"
+        "You are a helpful agent. Choose the best single tool based on the user's request and the tool descriptions.\n"
+        "If no tool is needed, respond normally. Keep it simple.\n\n"
+        "Available tools (name [type]: description):\n"
         f"{members.prompt_block('agent')}\n\n"
-        "AUTHENTICATION & CONNECTION HANDLING:\n"
-        "- If you encounter authentication/connection errors (token expired, not connected, not authenticated), "
-        "FIRST check if there's a verification/login/connection tool available (e.g., 'verify_gmail_connection', "
-        "'instagram_auth_verification') and call it to attempt reconnection.\n"
-        "- If the verification tool indicates the account is NOT connected and there's no automatic login tool, "
-        "respond with: 'Need to login first' and do NOT call any other tools.\n"
-        "- If reconnection succeeds, retry the original task.\n\n"
-        "RETRY LOGIC:\n"
-        "- If a tool does not return useful data, you may retry the SAME tool up to 3 times max "
-        "with slightly different parameter values to improve the results.\n"
-        "- Always state which tool you used and summarize the final result.\n"
-        "- If a tool still fails after retries, continue gracefully or report failure.\n"
-        "- If no tool is needed, respond normally.\n"
+        "Auth handling (simple):\n"
+        "- If a tool output or error indicates token expired / not connected / not authenticated,\n"
+        "  first try a verify-connection tool (name contains 'verify' and 'connection'). If not available,\n"
+        "  call a login/connect tool (name contains 'login' or 'connect'). Then continue the task.\n"
     )
 
-    async def agent_tool_node(state: State) -> Command[Literal[parent_node]]:
+    async def agent_tool_node(state: State) -> Command:
         # Import stream_llm for regular text generation with tools
         from chatagent.config.init import stream_llm
         
@@ -74,7 +66,7 @@ def make_agent_tool_node(
             }
         )
         
-        messages = [SystemMessage(content=system_prompt), *state["messages"]]        
+        messages = [*state.get("messages", []),SystemMessage(content=system_prompt)]
         
         print("agent tool runs : ", members.runs())
 
@@ -83,6 +75,8 @@ def make_agent_tool_node(
             ai_msg: AIMessage = await stream_llm.bind_tools(members.runs()).ainvoke(
                     messages, config={"callbacks": [callback_handler]}
                 )
+
+        print("\n\nAI Message from agent tool node:", ai_msg,"\n\n")
 
         usages_data = usages(cb)
         tools = members.tools()
@@ -100,57 +94,39 @@ def make_agent_tool_node(
                 if name in tools:
                     tool_to_run = tools[name]
                     tool_input = {**args}
-                    func_to_inspect = None
-                    if hasattr(tool_to_run, 'func') and callable(tool_to_run.func):
-                        func_to_inspect = tool_to_run.func
-                    elif callable(tool_to_run):
-                        func_to_inspect = tool_to_run
-
-                    if func_to_inspect:
-                        try:
-                            sig = inspect.signature(func_to_inspect)
-                            if 'state' in sig.parameters:
-                                tool_input['state'] = state
-                        except TypeError:
-                            print(f"Warning: Could not inspect signature for tool {name}. Proceeding without state injection.")
                     try:
                         out = await tool_to_run.ainvoke(
                             tool_input, config={"callbacks": [callback_handler]}
                         )
-                        print("\n\ntool calling : ", out)
-                        if isinstance(out, str):
-                            auth_keywords = ['not connected', 'not authenticated', 'token expired', 
-                                           'authentication required', 'need to connect', 'account is not connected']
-                            out_lower = out.lower()
-                            
-                            if any(keyword in out_lower for keyword in auth_keywords):
-                                verification_tools = {
-                                    'gmail': 'verify_gmail_connection',
-                                    'instagram': 'instagram_auth_verification',
-                                    'email': 'verify_gmail_connection'
-                                }
-                                platform = None
-                                for plat, tool_name in verification_tools.items():
-                                    if plat in name.lower() or plat in out_lower:
-                                        platform = plat
-                                        break
-                                if platform and verification_tools.get(platform) in tools:
-                                    out = f"{out}\n\n💡 Hint: Try calling '{verification_tools[platform]}' tool first to check/reconnect the {platform} account."
-                                else:
-                                    out = f"{out}\n\n⚠️ Need to login first - no automatic connection tool available."
-                                    
+                        print(f"\n\nTool '{name}' executed successfully with output: {out}\n\n")
                     except Exception as e:
-                        error_message = f"Tool '{name}' failed: {type(e).__name__}: {str(e)}"
-                        print(f"\n\nTool execution error: {error_message}")
-                        
-                        error_str = str(e).lower()
-                        auth_error_keywords = ['authentication', 'unauthorized', 'token', 'credentials', 
-                                              'not authenticated', 'access denied', 'permission denied']
-                        
-                        if any(keyword in error_str for keyword in auth_error_keywords):
-                            out = f"❌ Authentication Error: {type(e).__name__} - {str(e)}\n\n⚠️ Need to login first."
+                        print(f"\n\nTool execution error: {type(e).__name__}: {e}")
+                        # Handle GraphInterrupt as a non-error informational message
+                        if type(e).__name__ == 'GraphInterrupt':
+                            out = "Connection/auth flow initiated. Please complete the requested action."
                         else:
-                            out = f"❌ Error executing {name}: {type(e).__name__} - {str(e)}"
+                            out = f"Error: {type(e).__name__}: {str(e)}"
+
+                    # Normalize output to string for checks/storage
+                    if isinstance(out, (dict, list)):
+                        out_str = json.dumps(out, ensure_ascii=False)
+                        out_for_storage = out
+                    else:
+                        out_str = str(out)
+                        out_for_storage = out_str
+
+                    # Append the original tool result; the LLM will see it and decide next steps (e.g., verify/login)
+                    tool_results.append(
+                        ToolMessage(tool_call_id=tool_id, name=name, content=out_str)
+                    )
+                    tools_info.append(
+                        {
+                            "name": name,
+                            "tool_call_id": tool_id,
+                            "output": out_for_storage,
+                            "id": None,
+                        }
+                    )
                 else:
                     out = {"error": "bad tool name, retry"}
 
@@ -166,14 +142,16 @@ def make_agent_tool_node(
                     name=name,
                     content=out_str
                 )
-                tool_results.append(tool_msg)
-
-                tools_info.append({
-                    "name": name,
-                    "tool_call_id": tool_id,
-                    "output": out_for_storage,
-                    "id": getattr(tool_msg, "id", None),
-                })
+                # The above block already appends a ToolMessage for known tools.
+                # Only append this generic message for unknown tool branch.
+                if name not in tools:
+                    tool_results.append(tool_msg)
+                    tools_info.append({
+                        "name": name,
+                        "tool_call_id": tool_id,
+                        "output": out_for_storage,
+                        "id": getattr(tool_msg, "id", None),
+                    })
 
         tool_output = ToolOutput(output={"tools": tools_info}).to_dict()
 
@@ -182,7 +160,7 @@ def make_agent_tool_node(
                 goto=node_name,
                 update={
                     "input": state["input"],
-                    "messages": state.get('messages',[])+[ai_msg] + tool_results,
+                    "messages": state.get('messages', []) + [ai_msg] + tool_results,
                     "current_message": tool_results,
                     "reason": ai_msg.content,
                     "provider_id": state.get("provider_id"),
