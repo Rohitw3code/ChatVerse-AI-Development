@@ -5,8 +5,6 @@ from rich.console import Console
 from langchain_openai import OpenAIEmbeddings
 from langgraph.graph import StateGraph, START, END
 
-from chatagent.config.init import llm
-
 from chatagent.utils import State
 from chatagent.model.chat_agent_model import StreamChunk
 
@@ -33,8 +31,6 @@ from config import BaseConfig
 from chatagent.db.database_manager import DatabaseManager
 from chatagent.agents.inputer_agent import inputer
 from chatagent.agents.agent_search_node import search_agent_node
-from chatagent.agents.social_media_manager.instagram.instagram_agent import instagram_agent_node
-from chatagent.agents.social_media_manager.youtube.youtube_agent import youtube_agent_node
 
 
 
@@ -74,7 +70,6 @@ main_register.add(
 )
 
 task_dispatcher_node = task_dispatcher(
-    llm=llm,
     registry=main_register
 )
 

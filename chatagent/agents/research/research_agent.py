@@ -1,7 +1,7 @@
 from chatagent.node_registry import NodeRegistry
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
-from chatagent.config.init import llm
+from chatagent.config.init import non_stream_llm
 from chatagent.agents.create_agent_tool import make_agent_tool_node
 from chatagent.utils import log_tool_event
 from langgraph.types import interrupt
@@ -136,7 +136,7 @@ async def linkedin_person_search(
         data = res.read().decode("utf-8")
 
         with get_openai_callback() as cb:
-            structured_llm = llm.with_structured_output(PersonList)
+            structured_llm = non_stream_llm.with_structured_output(PersonList)
             result = await structured_llm.ainvoke(
                 "Extract the following job data into structured fields:\n"
                 f"{json.dumps(data, indent=2)}"
@@ -225,7 +225,7 @@ async def linkedin_job_search(
     res = conn.getresponse()
     data = res.read().decode("utf-8")
     with get_openai_callback() as cb:
-        structured_llm = llm.with_structured_output(JobList)
+        structured_llm = non_stream_llm.with_structured_output(JobList)
         result = await structured_llm.ainvoke(
             "Extract the following job data into structured fields:\n"
             f"{json.dumps(data, indent=2)}"
@@ -310,7 +310,6 @@ research_register.add("linkedin_job_search", linkedin_job_search, "tool")
 research_register.add("linkedin_person_search", linkedin_person_search, "tool")
 
 research_agent_node = make_agent_tool_node(
-    llm=llm,
     members=research_register,
     prompt=(
         "You are a Research/Search Agent with access to these tools:\n"

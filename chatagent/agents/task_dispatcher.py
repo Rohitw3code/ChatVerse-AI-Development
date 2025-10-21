@@ -1,6 +1,5 @@
 from typing import List, Literal
 from pydantic import BaseModel, Field, field_validator
-from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
 from langgraph.types import Command
 from langchain_community.callbacks import get_openai_callback
@@ -9,7 +8,7 @@ from chatagent.utils import State, usages
 from chatagent.node_registry import NodeRegistry
 
 
-def task_dispatcher(llm: BaseChatModel, registry: NodeRegistry):
+def task_dispatcher(registry: NodeRegistry):
     """
     Factory function creating a task dispatcher node that routes tasks to appropriate agents.
     Handles task completion, retry logic, and fallback to replanner when needed.
@@ -164,13 +163,16 @@ def task_dispatcher(llm: BaseChatModel, registry: NodeRegistry):
         else:
             dynamic_allowed_choices = allowed_choices
 
+        # Import non_stream_llm for structured output
+        from chatagent.config.init import non_stream_llm
+        
         # Invoke LLM with structured output
         system_prompt = _build_system_prompt(available_agents)
         messages = [SystemMessage(content=system_prompt), prompt_context] + state['messages']
 
         with get_openai_callback() as cb:
             try:
-                response: Router = llm.with_structured_output(Router).invoke(messages)
+                response: Router = non_stream_llm.with_structured_output(Router).invoke(messages)
             except Exception as e:
                 print(f"[ERROR] LLM failed to produce valid Router output: {e}")
                 response = Router(next="END", reason="LLM invocation failed, ending safely.")

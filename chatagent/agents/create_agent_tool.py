@@ -21,7 +21,6 @@ callback_handler = OpenAICallbackHandler()
 import json
 
 def make_agent_tool_node(
-    llm: "BaseChatModel",
     members: NodeRegistry,
     prompt: str | None = None,
     node_name: str = "agent_tool_node",
@@ -40,6 +39,9 @@ def make_agent_tool_node(
     )
 
     async def agent_tool_node(state: State) -> Command[Literal[parent_node]]:
+        # Import stream_llm for regular text generation with tools
+        from chatagent.config.init import stream_llm
+        
         writer = get_stream_writer()
         writer(
             {
@@ -67,7 +69,7 @@ def make_agent_tool_node(
         
         with get_openai_callback() as cb:
             print("members tools : ", members.runs())
-            ai_msg: AIMessage = await llm.bind_tools(members.runs()).ainvoke(
+            ai_msg: AIMessage = await stream_llm.bind_tools(members.runs()).ainvoke(
                     messages, config={"callbacks": [callback_handler]}
                 )
 

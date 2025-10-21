@@ -203,6 +203,8 @@ async def send_message_stream(
 
                 # print("message chunk : ",message_chunk)
                 metadata = stream_data[1]
+                if metadata.get("tags",["nonstream"]) == ["nonstream"]:
+                    continue
                 # print("meta data : ",metadata)
 
                 # print("---- ","--end---","-----")

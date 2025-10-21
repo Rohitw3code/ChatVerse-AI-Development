@@ -5,7 +5,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.types import Command
 from langchain_community.callbacks import get_openai_callback
 
-from chatagent.config.init import llm
+from chatagent.config.init import non_stream_llm
 from chatagent.utils import State, usages
 
 
@@ -49,7 +49,7 @@ def make_planner_node(node_name: str = "planner_node"):
             print("\n\n", "=" * 20, " Planner Node Invoked ", "=" * 20)
             print("Generating plan for:", state['input'])
 
-            result: Plan = llm.with_structured_output(Plan).invoke([
+            result: Plan = non_stream_llm.with_structured_output(Plan).invoke([
                 HumanMessage(content=message_content)
             ])
         
@@ -98,7 +98,7 @@ def make_planner_node(node_name="planner_node"):
             print("message_content:", message_content)
             print("\n\n ")
 
-            result: Plan = llm.with_structured_output(Plan).invoke([
+            result: Plan = non_stream_llm.with_structured_output(Plan).invoke([
                 HumanMessage(content=message_content)
             ])
         

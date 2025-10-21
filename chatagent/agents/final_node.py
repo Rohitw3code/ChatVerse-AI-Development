@@ -2,7 +2,7 @@ from typing import Literal, Optional
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langgraph.types import Command
 from pydantic import BaseModel, Field
-from chatagent.config.init import llm
+from chatagent.config.init import stream_llm
 from chatagent.utils import State, usages
 from langchain_community.callbacks import get_openai_callback
 from langchain_community.callbacks.openai_info import OpenAICallbackHandler
@@ -10,8 +10,7 @@ from langchain_community.callbacks.openai_info import OpenAICallbackHandler
 
 class FinalAnswerAgent:
 
-    def __init__(self, llm):
-        self.llm = llm
+    def __init__(self):
         self.callback_handler = OpenAICallbackHandler()
 
     def start(self, state: State) -> Command[Literal["__end__"]]:
@@ -26,7 +25,7 @@ class FinalAnswerAgent:
         ]
 
         with get_openai_callback() as cb:
-            final_answer = self.llm.invoke(messages)
+            final_answer = stream_llm.invoke(messages)
 
         usages_data = usages(cb)
 
@@ -57,4 +56,4 @@ class FinalAnswerAgent:
         )
 
 
-final_answer_node = FinalAnswerAgent(llm).start
+final_answer_node = FinalAnswerAgent().start

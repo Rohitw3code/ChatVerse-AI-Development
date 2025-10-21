@@ -1,7 +1,6 @@
 from chatagent.node_registry import NodeRegistry
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
-from chatagent.config.init import llm
 from chatagent.agents.create_agent_tool import make_agent_tool_node
 from chatagent.utils import log_tool_event
 from langgraph.types import interrupt
@@ -42,7 +41,6 @@ youtube_tool_register = NodeRegistry()
 youtube_tool_register.add("fetch_youtube_channel_details", fetch_youtube_channel_details, "tool")
 
 youtube_agent_node = make_agent_tool_node(
-    llm=llm,
     members=youtube_tool_register,
     prompt=(
         "You are a YouTube agent. You can fetch channel details. "

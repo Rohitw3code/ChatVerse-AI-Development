@@ -1,6 +1,5 @@
 from typing import Literal, List
 from pydantic import BaseModel, Field, field_validator
-from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, SystemMessage
 from langgraph.types import Command
 from langchain_community.callbacks import get_openai_callback
@@ -9,7 +8,6 @@ from chatagent.utils import State, usages
 from chatagent.node_registry import NodeRegistry
 
 def make_supervisor_node(
-    llm: BaseChatModel,
     registry: NodeRegistry,
     node_name: str,
     goto_end_symbol: str,
@@ -102,9 +100,12 @@ def make_supervisor_node(
         if state.get("messages"):
             messages += state["messages"]
 
+        # Import non_stream_llm for structured output
+        from chatagent.config.init import non_stream_llm
+        
         with get_openai_callback() as cb:
             try:
-                response: Router = llm.with_structured_output(Router).invoke(messages)
+                response: Router = non_stream_llm.with_structured_output(Router).invoke(messages)
             except Exception as e:
                 print(f"[ERROR] LLM failed to produce valid Router output: {e}")
                 response = Router(next="BACK", reason="LLM invocation failed, escalating back safely.")

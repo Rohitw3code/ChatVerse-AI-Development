@@ -1,7 +1,6 @@
 from chatagent.node_registry import NodeRegistry
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
-from chatagent.config.init import llm
 from chatagent.agents.create_agent_tool import make_agent_tool_node
 from chatagent.utils import log_tool_event
 from langgraph.types import interrupt
@@ -155,7 +154,6 @@ instagram_tool_register.add("instagram_error", instagram_error, "tool")
 
 
 instagram_agent_node = make_agent_tool_node(
-    llm=llm,
     members=instagram_tool_register,
     prompt=(
         "You are an Instagram agent with access to the following tools:\n"

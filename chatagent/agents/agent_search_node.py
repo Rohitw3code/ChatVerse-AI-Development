@@ -1,7 +1,7 @@
 from typing_extensions import Literal
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.types import Command
-from chatagent.config.init import llm
+from chatagent.config.init import non_stream_llm
 from chatagent.utils import State, usages
 from langchain_community.callbacks import get_openai_callback
 from pydantic import BaseModel, Field
@@ -74,7 +74,7 @@ def search_agent_node():
                 "Analyze the query, select the exact agent names needed, and indicate if they are sufficient."
             )
             
-            agent_selection: AgentSelection = llm.with_structured_output(AgentSelection).invoke(
+            agent_selection: AgentSelection = non_stream_llm.with_structured_output(AgentSelection).invoke(
                 [
                     SystemMessage(content=AGENT_SELECTION_PROMPT),
                     HumanMessage(content=prompt_content)

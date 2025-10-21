@@ -6,7 +6,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 from pydantic import BaseModel, Field
-from chatagent.config.init import llm
+from chatagent.config.init import non_stream_llm
 from chatagent.utils import usages, log_tool_event
 from chatagent.agents.create_agent_tool import make_agent_tool_node
 from langchain_community.callbacks import get_openai_callback
@@ -243,7 +243,7 @@ def draft_gmail(
     """
 
     with get_openai_callback() as cb:
-        tool_output = llm.with_structured_output(GmailDraft).invoke(
+        tool_output = non_stream_llm.with_structured_output(GmailDraft).invoke(
             [
                 SystemMessage(
                     content=f"You are a professional Gmail writer. {gmail_prompt}"
@@ -440,7 +440,6 @@ gmail_tool_register.add("verify_gmail_connection", verify_gmail_connection, "too
 
 
 gmail_agent_node = make_agent_tool_node(
-    llm=llm,
     members=gmail_tool_register,
     prompt=(
         "You are a Gmail agent with access to the following tools:\n"
