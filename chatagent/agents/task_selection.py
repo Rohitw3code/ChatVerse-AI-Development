@@ -1,18 +1,18 @@
 from typing_extensions import Literal
 from langchain_core.messages import AIMessage
 from langgraph.types import Command
-from chatagent.config.init import llm
+
 from chatagent.utils import State
 
 
-def task_selection_node(node_name="task_selection_node"):
+def task_selection_node(node_name: str = "task_selection_node"):
     """
-    This Node is for the selection of the task
+    Factory function creating a task selection node.
+    Pops the first task from plans and sets it as the current task.
     """
 
-    def task_selection(
-            state: State) -> Command[Literal["task_dispatcher_node"]]:
-        # defensive: make sure plans is always a list
+    def task_selection(state: State) -> Command[Literal["task_dispatcher_node"]]:
+        """Select the next task from remaining plans."""
         plans = state.get('plans', []) or []
 
         if plans:
@@ -22,15 +22,17 @@ def task_selection_node(node_name="task_selection_node"):
             current_task = "No tasks left — all plans completed"
             new_plan = []
 
-        ai_msg = AIMessage(content=f"Current Task : {current_task}")
+        ai_msg = AIMessage(content=f"Current Task: {current_task}")
 
         return Command(
+            goto="task_dispatcher_node",
             update={
                 "input": state["input"],
                 "messages": [ai_msg],
                 "current_message": [ai_msg],
-                "reason": f"{current_task}",
+                "reason": current_task,
                 "provider_id": state.get("provider_id"),
+                "node": node_name,
                 "next_node": "task_dispatcher_node",
                 "type": "planner",
                 "next_type": "thinker",
@@ -41,7 +43,6 @@ def task_selection_node(node_name="task_selection_node"):
                 "tool_output": state.get("tool_output"),
                 "max_message": state.get("max_message", 10),
             },
-            goto="task_dispatcher_node",
         )
 
     task_selection.__name__ = node_name

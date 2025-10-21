@@ -1,138 +1,129 @@
-from typing import Optional
+from typing import List, Literal
 from pydantic import BaseModel, Field, field_validator
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, SystemMessage, HumanMessage, get_buffer_string
-from langgraph.graph import END
+from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
 from langgraph.types import Command
-from chatagent.utils import State, usages
-from typing import List, Optional, Literal
-from chatagent.node_registry import NodeRegistry
-from langchain_community.callbacks.openai_info import OpenAICallbackHandler
-from langchain_core.runnables import RunnableConfig
 from langchain_community.callbacks import get_openai_callback
 
+from chatagent.utils import State, usages
+from chatagent.node_registry import NodeRegistry
 
-callback_handler = OpenAICallbackHandler()
 
-
-def task_dispatcher(
-    llm: BaseChatModel,
-    registry: NodeRegistry,
-):
-   
-    
+def task_dispatcher(llm: BaseChatModel, registry: NodeRegistry):
+    """
+    Factory function creating a task dispatcher node that routes tasks to appropriate agents.
+    Handles task completion, retry logic, and fallback to replanner when needed.
+    """
     node_name = "task_dispatcher"
+    members = registry.members() + ['final_answer_node']
+    special_commands = ['END', 'NEXT_TASK']
+    allowed_choices = members + special_commands
 
-    # Base members for validation - comes from registry
-    members = registry.members()+['final_answer_node']
-
-    def build_system_prompt(available_agents: List[dict]) -> str:
-        """
-        Build system prompt dynamically using agents from state.
-        Falls back to registry if no agents provided.
-        """
+    def _build_system_prompt(available_agents: List[dict]) -> str:
+        """Build dynamic system prompt using agents from state or registry fallback."""
         if available_agents:
-            # Build available_nodes from state agents
-            agent_lines = []
-            for agent in available_agents:
-                agent_lines.append(f"- {agent['name']}: {agent['description']}")
+            agent_lines = [f"- {agent['name']}: {agent['description']}" for agent in available_agents]
             available_nodes_block = "\n".join(agent_lines)
+            # Build allowed choices from identified agents only
+            agent_names = [agent['name'] for agent in available_agents]
+            dynamic_allowed_choices = agent_names + special_commands
         else:
-            # Fallback to registry
             available_nodes_block = registry.prompt_block("Supervisor")
+            # Fallback to all registry members if no agents identified
+            dynamic_allowed_choices = allowed_choices
         
         return f"""<prompt>
-        <role>You are {node_name}, an orchestrator supervisor. Your only job is to analyze the current state and route to the correct node to continue the plan. You must not end the process if there are still plans left to execute, unless repeated failures occur.</role>
-        <output_format>
-            Your response MUST be a single, valid JSON object and nothing else.
-            <json_schema>
-            {{
-                "next": "<string: exact_node_name | 'END' | 'NEXT_TASK'>",
-                "reason": "<string: concise justification for your choice>"
-            }}
-            </json_schema>
-        </output_format>
-        <instructions>
-            <rule id="1">Analyze the `current_task` and `remaining_plans` provided in the user message to decide the next step.</rule>
-            <rule id="2">Route to the node from `<available_nodes>` that is best equipped to handle the `current_task`.</rule>
-            <rule id="3">Only select 'NEXT_TASK' if the current task is fully complete and you must proceed to the next plan.</rule>
-            <rule id="4">You MUST ONLY select 'END' when the `remaining_plans` list is explicitly empty.</rule>
-            <rule id="5">If after 1–2 attempts the AI keeps responding that there are no available tools, no capabilities, or that it cannot do the task, you MUST select 'END' to avoid infinite recursion.</rule>
-            <rule id="6">Do not write too long write in brifly wihtout revealing the node name </rule>
-        </instructions>
-        <available_nodes>
+                <role>You are {node_name}, an orchestrator supervisor that routes tasks to appropriate nodes based on current task requirements.</role>
+                <output_format>
+                    Respond with ONLY a valid JSON object:
+                    {{"next": "<exact_node_name | 'END' | 'NEXT_TASK'>", "reason": "<brief_justification>"}}
+                </output_format>
+                <instructions>
+                    <rule id="1">Analyze `current_task` and `remaining_plans` to decide the next step.</rule>
+                    <rule id="2">Route to the most appropriate node from `<available_nodes>` for the current task.</rule>
+                    <rule id="3">Select 'NEXT_TASK' only when the current task is fully complete.</rule>
+                    <rule id="4">Select 'END' ONLY when `remaining_plans` is empty.</rule>
+                    <rule id="5">If repeated failures occur (agent reports no capabilities), select 'END' to prevent infinite loops.</rule>
+                    <rule id="6">Keep reason brief and user-friendly without revealing internal node names.</rule>
+                </instructions>
+                <available_nodes>
             {available_nodes_block}
-        </available_nodes>
-        <allowed_choices>
-            The "next" value must be one of the following exact strings: {members + ['END', 'NEXT_TASK']}
-        </allowed_choices>
-    </prompt>"""
+                </available_nodes>
+                <allowed_choices>{dynamic_allowed_choices}</allowed_choices>
+            </prompt>"""
 
     class Router(BaseModel):
-        next: str = Field(
-            ...,
-            description="Exact node name to call next, or 'END' or 'NEXT_TASK' to handle special commands.")
-        reason: str = Field(..., description="write as human what you did and what next never reveal the next node name here or any internal state talk like human approch")
+        """Response model for task routing decisions."""
+        next: str = Field(..., description="Exact node name to call next, or 'END' or 'NEXT_TASK'.")
+        reason: str = Field(..., description="Brief human-readable explanation without revealing internal node names.")
 
         @field_validator("next")
         @classmethod
         def validate_next(cls, v: str) -> str:
+            """Validate and sanitize the next node selection."""
             if not v or not v.strip():
                 raise ValueError("'next' must not be empty")
             v = v.strip()
-            allowed = members + ["END", "NEXT_TASK"]
-            if v not in allowed:
-                print(f"[WARN] Invalid next='{v}', falling back to END")
-                return "END"
+            # Note: Validation against dynamic allowed_choices happens in the node logic
+            # Here we just ensure it's not empty and trimmed
             return v
 
+    def _create_command(goto: str, state: State, reason: str, usages_data: dict, next_type: str = "thinker", dispatch_retries: int = 0, reset_task_status: bool = False) -> Command:
+        """Helper to create consistent Command objects with all required state."""
+        return Command(
+            goto=goto,
+            update={
+                "input": state["input"],
+                "messages": [AIMessage(content=f"Dispatcher: {reason}")],
+                "current_message": [AIMessage(content=reason)],
+                "reason": reason,
+                "provider_id": state.get("provider_id"),
+                "node": node_name,
+                "next_node": goto,
+                "type": "thinker",
+                "next_type": next_type,
+                "usages": usages_data,
+                "status": "success",
+                "plans": state.get("plans", []),
+                "current_task": state.get("current_task", "NO TASK"),
+                "tool_output": state.get("tool_output"),
+                "max_message": state.get("max_message", 10),
+                "dispatch_retries": dispatch_retries,
+                "task_status": "" if reset_task_status else state.get("task_status", ""),
+            },
+        )
+
     def task_dispatcher_node(state: State) -> Command:
-        
+        """Main dispatcher logic that routes tasks and handles completion/retry scenarios."""
         remaining_plans = state.get('plans', [])
         current_task = state.get('current_task', '')
-        
-        # Get available agents from state (set by search_agent_node)
         available_agents = state.get('agents', [])
 
-        print("\n\nAVAILABLE AGENTS IN DISPATCHER : ", available_agents,"\n\n")
+        print("\n\nAVAILABLE AGENTS IN DISPATCHER:", available_agents, "\n\n")
 
-        # If an agent marked the current task as completed, move to the next task deterministically
+        # Handle task completion deterministically
         if state.get('task_status') == 'completed':
             done_msg = AIMessage(content="Task completed. Moving to the next task.")
-            return Command(
+            return _create_command(
                 goto="task_selection_node",
-                update={
-                    "input": state["input"],
-                    "messages": [done_msg],
-                    "current_message": [done_msg],
-                    "reason": done_msg.content,
-                    "provider_id": state.get("provider_id"),
-                    "node": node_name,
-                    "next_node": "task_selection_node",
-                    "type": "thinker",
-                    "next_type": "planner",
-                    "usages": {},
-                    "status": "success",
-                    "plans": state.get("plans", []),
-                    "current_task": state.get("current_task", "NO TASK"),
-                    "tool_output": state.get("tool_output"),
-                    "max_message": state.get("max_message", 10),
-                    "dispatch_retries": 0,
-                    "task_status": "",
-                },
+                state=state,
+                reason=done_msg.content,
+                usages_data={},
+                next_type="planner",
+                dispatch_retries=0,
+                reset_task_status=True
             )
 
-        # Guardrails and loop-prevention counters
+        # Retry logic with guardrails
         dispatch_retries = state.get('dispatch_retries', 0)
         max_dispatch_retries = state.get('max_dispatch_retries', 3)
         new_dispatch_retries = dispatch_retries + 1
 
-        # End after too many attempts on the same task
+        # Escalate to replanner after max retries
         if new_dispatch_retries >= max_dispatch_retries:
-            replan_msg = AIMessage(content=(
-                "Multiple attempts could not route/execute the current task. "
-                "Sending to the replanner to adjust the plan so execution can continue."
-            ))
+            replan_msg = AIMessage(
+                content="Multiple routing attempts failed. Sending to replanner to adjust the plan."
+            )
             return Command(
                 goto="replanner_node",
                 update={
@@ -155,113 +146,77 @@ def task_dispatcher(
                 },
             )
 
+        # Build prompt context
         prompt_context = HumanMessage(
-            content=f"""Here is the current state of the workflow:
-            <current_task>
-            {current_task}
-            </current_task>
+            content=f"""Current workflow state:
+            <current_task>{current_task}</current_task>
+            <remaining_plans>{remaining_plans}</remaining_plans>
+            <attempt_info>dispatch_retries: {new_dispatch_retries} / {max_dispatch_retries}</attempt_info>
 
-            <remaining_plans>
-            {remaining_plans}
-            </remaining_plans>
-
-            <attempt_info>
-            dispatch_retries: {new_dispatch_retries} / {max_dispatch_retries}
-            </attempt_info>
-
-            Based on the `current_task` and the `remaining_plans`, decide the next step.
-            Remember: Do NOT choose 'END' unless the `remaining_plans` list is empty.
+            Decide the next step. Do NOT choose 'END' unless remaining_plans is empty
             """
         )
 
-        # Build dynamic system prompt using agents from state
-        system_prompt = build_system_prompt(available_agents)
+        # Build dynamic allowed choices based on available agents
+        if available_agents:
+            agent_names = [agent['name'] for agent in available_agents]
+            dynamic_allowed_choices = agent_names + special_commands
+        else:
+            dynamic_allowed_choices = allowed_choices
 
-        messages = [
-            SystemMessage(content=system_prompt),
-            prompt_context
-        ]+state['messages']
+        # Invoke LLM with structured output
+        system_prompt = _build_system_prompt(available_agents)
+        messages = [SystemMessage(content=system_prompt), prompt_context] + state['messages']
 
         with get_openai_callback() as cb:
             try:
-                response: Router = llm.with_structured_output(Router).invoke(
-                    messages
-                )
+                response: Router = llm.with_structured_output(Router).invoke(messages)
             except Exception as e:
                 print(f"[ERROR] LLM failed to produce valid Router output: {e}")
-                response = Router(next="END", reason="LLM failed, ending safely.")
+                response = Router(next="END", reason="LLM invocation failed, ending safely.")
 
         usages_data = usages(cb)
 
+        # Validate response against dynamic allowed choices
+        if response.next not in dynamic_allowed_choices:
+            print(f"[WARN] LLM selected invalid node '{response.next}' not in available agents. Falling back to END")
+            response.next = "END"
+            response.reason = f"Selected agent not available for this query. {response.reason}"
+
+        # Handle NEXT_TASK command
         if response.next.upper() == "NEXT_TASK":
-            return Command(
+            return _create_command(
                 goto="task_selection_node",
-                update={
-                    "input": state["input"],
-                    "messages": [AIMessage(content=f"Dispatcher: {response.reason}")],
-                    "current_message": [AIMessage(content=response.reason)],
-                    "reason": response.reason,
-                    "provider_id": state.get("provider_id"),
-                    "node": node_name,
-                    "next_node": "task_selection_node",
-                    "type": "thinker",
-                    "next_type": "planner",
-                    "usages": usages_data,
-                    "status": "success",
-                    "plans": state.get("plans", []),
-                    "current_task": state.get("current_task", "NO TASK"),
-                    "tool_output": state.get("tool_output"),
-                    "max_message": state.get("max_message", 10),
-                    "dispatch_retries": 0,
-                },
+                state=state,
+                reason=response.reason,
+                usages_data=usages_data,
+                next_type="planner",
+                dispatch_retries=0
             )
 
+        # Handle END/FINISH command
         if response.next.upper() in {"END", "FINISH"}:
-            return Command(
+            return _create_command(
                 goto="final_answer_node",
-                update={
-                    "input": state["input"],
-                    "messages": [AIMessage(content=f"All Tasks Completed: {response.reason}")],
-                    "current_message": [AIMessage(content=f"{response.reason}")],
-                    "reason": response.reason,
-                    "provider_id": state.get("provider_id"),
-                    "node": node_name,
-                    "next_node": "final_answer_node",
-                    "type": "thinker",
-                    "next_type": "END",
-                    "usages": usages_data,
-                    "status": "success",
-                    "plans": state.get("plans", []),
-                    "current_task": state.get("current_task", "NO TASK"),
-                    "tool_output": state.get("tool_output"),
-                    "max_message": state.get("max_message", 10),
-                    "dispatch_retries": new_dispatch_retries,
-                },
+                state=state,
+                reason=f"{response.reason}",
+                usages_data=usages_data,
+                next_type="END",
+                dispatch_retries=new_dispatch_retries
             )
 
+        # Route to selected node
         spec = registry.get(response.next)
         resolved_type = spec.type if spec else "unknown"
+        next_type = "thinker" if resolved_type == "supervisor" else "executor"
 
-        return Command(
+        return _create_command(
             goto=response.next,
-            update={
-                "input": state["input"],
-                "messages": [AIMessage(content=f"Dispatcher: {response.reason}")],
-                "current_message": [AIMessage(content=f"Routing to {response.next} because {response.reason}")],
-                "reason": response.reason,
-                "provider_id": state.get("provider_id"),
-                "node": node_name,
-                "next_node": response.next,
-                "type": "thinker",
-                "next_type": "thinker" if resolved_type == "supervisor" else "executor",
-                "usages": usages_data,
-                "status": "success",
-                "plans": state.get("plans", []),
-                "current_task": state.get("current_task", "NO TASK"),
-                "tool_output": state.get("tool_output"),
-                "max_message": state.get("max_message", 10),
-                "dispatch_retries": new_dispatch_retries,
-            },
+            state=state,
+            reason=response.reason,
+            usages_data=usages_data,
+            next_type=next_type,
+            dispatch_retries=new_dispatch_retries
         )
 
     task_dispatcher_node.__name__ = node_name

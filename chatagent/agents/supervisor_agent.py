@@ -1,17 +1,12 @@
-from typing import Optional, Literal
+from typing import Literal, List
 from pydantic import BaseModel, Field, field_validator
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
-from langgraph.graph import END
+from langchain_core.messages import AIMessage, SystemMessage
 from langgraph.types import Command
-from chatagent.utils import State, usages
-from typing import List, Optional
-from chatagent.node_registry import NodeRegistry
-from langchain_community.callbacks.openai_info import OpenAICallbackHandler
-from langchain_core.runnables import RunnableConfig
 from langchain_community.callbacks import get_openai_callback
 
-callback_handler = OpenAICallbackHandler()
+from chatagent.utils import State, usages
+from chatagent.node_registry import NodeRegistry
 
 def make_supervisor_node(
     llm: BaseChatModel,
@@ -20,38 +15,38 @@ def make_supervisor_node(
     goto_end_symbol: str,
     prompt: str = ""
 ):
-    
+    """
+    Factory function creating a supervisor node that routes tasks within a specific domain.
+    Handles escalation (BACK), task completion (NEXT_TASK), and proper retry logic.
+    """
     special_commands = ['BACK', 'NEXT_TASK']
     members = registry.members() + special_commands
     router_members = registry.members()
 
     system_prompt = f"""<prompt>
-        <role>You are {node_name}, a supervisor. Decide the next best step in the workflow.</role>
-        <supervisor_instructions>{prompt}</supervisor_instructions>
-        <output_format>
-            Your response MUST be a single, valid JSON object with keys "next" and "reason".
-        </output_format>
-        <instructions>
-            <rule id="1">Analyze the current task and route to the node from `<available_nodes>` that is best equipped to handle it.</rule>
-            <rule id="2">If the task is incomplete and a previous supervisor can help, select 'BACK' to escalate.</rule>
-            <rule id="3">If the current task is fully completed, select 'NEXT_TASK' to get the next plan from the replanner.</rule>
-            <rule id="4">If no available node can handle the request, you must select 'BACK'.</rule>
-            <rule id="5">write in short the reason for your choice in the "reason" field, never mention the next node name here or any internal state talk like human approch</rule>
-        </instructions>
-        <available_nodes>{registry.prompt_block("Supervisor")}</available_nodes>
-        <allowed_choices>The "next" value must be one of the following exact strings: {members}</allowed_choices>
-    </prompt>"""
+    <role>You are {node_name}, a supervisor that decides the next step in the workflow.</role>
+    <supervisor_instructions>{prompt}</supervisor_instructions>
+    <output_format>Respond with ONLY a valid JSON object: {{"next": "<node_name | 'BACK' | 'NEXT_TASK'>", "reason": "<brief_justification>"}}</output_format>
+    <instructions>
+        <rule id="1">Analyze the current task and route to the most appropriate node from `<available_nodes>`.</rule>
+        <rule id="2">Select 'BACK' if the task is incomplete and a previous supervisor can help.</rule>
+        <rule id="3">Select 'NEXT_TASK' if the current task is fully completed.</rule>
+        <rule id="4">Select 'BACK' if no available node can handle the request.</rule>
+        <rule id="5">Keep reason brief and user-friendly without revealing internal node names.</rule>
+    </instructions>
+    <available_nodes>{registry.prompt_block("Supervisor")}</available_nodes>
+    <allowed_choices>{members}</allowed_choices>
+</prompt>"""
 
     class Router(BaseModel):
-        
-        next: str = Field(
-            ...,
-            description="Exact node name to call next, or 'BACK', or 'NEXT_TASK' to handle special commands.")
-        reason: str = Field(..., description="write the next approch to decide the next node never mention the next node name here or any internal state talk like human approch")
+        """Response model for supervisor routing decisions."""
+        next: str = Field(..., description="Exact node name to call next, or 'BACK', or 'NEXT_TASK'.")
+        reason: str = Field(..., description="Brief human-readable explanation without revealing internal node names.")
 
         @field_validator("next")
         @classmethod
         def validate_next(cls, v: str) -> str:
+            """Validate and sanitize the next node selection."""
             if not v or not v.strip():
                 raise ValueError("'next' must not be empty")
             v = v.strip()
@@ -60,91 +55,82 @@ def make_supervisor_node(
                 return "BACK"
             return v
 
-    def supervisor_node(state: State) -> Command[Literal[*router_members]]:
-        
-        # Guardrail counters
+    def _create_command(goto: str, state: State, reason: str, usages_data: dict, next_type: str = "thinker", back_count: int = 0, reset_task_status: bool = False) -> Command:
+        """Helper to create consistent Command objects with all required state."""
+        return Command(
+            goto=goto,
+            update={
+                "input": state["input"],
+                "messages": [AIMessage(content=f"Supervisor: {reason}")],
+                "current_message": [AIMessage(content=reason)],
+                "reason": reason,
+                "provider_id": state.get("provider_id"),
+                "node": node_name,
+                "next_node": goto,
+                "type": "thinker",
+                "next_type": next_type,
+                "usages": usages_data,
+                "status": "success",
+                "plans": state.get("plans", []),
+                "current_task": state.get("current_task", "NO TASK"),
+                "tool_output": state.get("tool_output"),
+                "max_message": state.get("max_message", 10),
+                "back_count": back_count,
+                "task_status": "" if reset_task_status else state.get("task_status", ""),
+            },
+        )
+
+    def supervisor_node(state: State) -> Command:
+        """Main supervisor logic that routes within domain and handles escalation."""
         back_count = state.get("back_count", 0)
         max_back = state.get("max_back", 2)
 
-        # If the current task was marked completed by an agent, auto-advance
+        # Handle task completion deterministically
         if state.get("task_status") == "completed":
             done_msg = AIMessage(content="Task completed. Advancing to the next task.")
-            return Command(
+            return _create_command(
                 goto="task_selection_node",
-                update={
-                    "input": state["input"],
-                    "messages": [done_msg],
-                    "current_message": [done_msg],
-                    "reason": done_msg.content,
-                    "provider_id": state.get("provider_id"),
-                    "node": node_name,
-                    "next_node": "task_selection_node",
-                    "type": "thinker",
-                    "next_type": "planner",
-                    "usages": state.get("usages", {}),
-                    "status": "success",
-                    "plans": state.get("plans", []),
-                    "current_task": state.get("current_task", "NO TASK"),
-                    "tool_output": state.get("tool_output"),
-                    "max_message": state.get("max_message", 10),
-                    "dispatch_retries": 0,
-                    "task_status": "",
-                },
+                state=state,
+                reason=done_msg.content,
+                usages_data={},
+                next_type="planner",
+                reset_task_status=True
             )
 
-        messages = [
-            SystemMessage(content=system_prompt),
-        ]
-
+        # Build messages for LLM
+        messages = [SystemMessage(content=system_prompt)]
         if state.get("messages"):
             messages += state["messages"]
 
         with get_openai_callback() as cb:
             try:
-                response: Router = llm.with_structured_output(Router).invoke(
-                    messages
-                )
+                response: Router = llm.with_structured_output(Router).invoke(messages)
             except Exception as e:
                 print(f"[ERROR] LLM failed to produce valid Router output: {e}")
-                response = Router(
-                    next="BACK",
-                    reason="LLM failed, escalating back safely.")
+                response = Router(next="BACK", reason="LLM invocation failed, escalating back safely.")
 
         usages_data = usages(cb)
+
+        # Handle NEXT_TASK command
         if response.next.upper() == "NEXT_TASK":
-            return Command(
+            return _create_command(
                 goto="task_selection_node",
-                update={
-                    "input": state["input"],
-                    "messages": [AIMessage(content=f"Supervisor: {response.reason}")],
-                    "current_message": [AIMessage(content=response.reason)],
-                    "reason": response.reason,
-                    "provider_id": state.get("provider_id"),
-                    "node": node_name,
-                    "next_node": "task_selection_node",
-                    "type": "thinker",
-                    "next_type": "planner",
-                    "usages": usages_data,
-                    "status": "success",
-                    "plans": state.get("plans", []),
-                    "current_task": state.get("current_task", "NO TASK"),
-                    "tool_output": state.get("tool_output"),
-                    "max_message": state.get("max_message", 10),
-                    # Reset retries when moving to next task
-                    "dispatch_retries": 0,
-                    "task_status": "",
-                },
+                state=state,
+                reason=response.reason,
+                usages_data=usages_data,
+                next_type="planner",
+                reset_task_status=True
             )
 
+        # Handle BACK command with retry limit
         if response.next.upper() == "BACK":
             new_back_count = back_count + 1
 
-            # If too many BACKs, end gracefully to avoid infinite loops
+            # End gracefully after too many BACKs
             if new_back_count >= max_back:
-                end_msg = AIMessage(content=(
-                    "I cannot complete this request with the currently available agents. "
-                    "Ending now to avoid an infinite loop."
-                ))
+                end_msg = AIMessage(
+                    content="Cannot complete this request with available agents. Ending to avoid infinite loop."
+                )
                 return Command(
                     goto="final_answer_node",
                     update={
@@ -167,50 +153,26 @@ def make_supervisor_node(
                     },
                 )
 
-            return Command(
+            return _create_command(
                 goto=goto_end_symbol,
-                update={
-                    "input": state["input"],
-                    "messages": [AIMessage(content=f"Supervisor escalating back: {response.reason}")],
-                    "current_message": [AIMessage(content=f"{response.reason}")],
-                    "reason": response.reason,
-                    "provider_id": state.get("provider_id"),
-                    "node": node_name,
-                    "next_node": goto_end_symbol,
-                    "type": "thinker",
-                    "next_type": "thinker",
-                    "usages": usages_data,
-                    "status": "success",
-                    "plans": state.get("plans", []),
-                    "current_task": state.get("current_task", "NO TASK"),
-                    "tool_output": state.get("tool_output"),
-                    "max_message": state.get("max_message", 10),
-                    "back_count": new_back_count,
-                },
+                state=state,
+                reason=response.reason,
+                usages_data=usages_data,
+                next_type="thinker",
+                back_count=new_back_count
             )
 
+        # Route to selected node
         spec = registry.get(response.next)
         resolved_type = spec.type if spec else "unknown"
+        next_type = "thinker" if resolved_type == "supervisor" else "executor"
 
-        return Command(
+        return _create_command(
             goto=response.next,
-            update={
-                "input": state["input"],
-                "messages": [AIMessage(content=f"Supervisor: {response.reason}")],
-                "current_message": [AIMessage(content=f"Routing to {response.next} because {response.reason}")],
-                "reason": response.reason,
-                "provider_id": state.get("provider_id"),
-                "node": node_name,
-                "next_node": response.next,            
-                "type": "thinker",
-                "next_type": "thinker" if resolved_type == "supervisor" else "executor",
-                "usages": usages_data,
-                "status": "success",
-                "plans": state.get("plans", []),
-                "current_task": state.get("current_task", "NO TASK"),
-                "tool_output": state.get("tool_output"),
-                "max_message": state.get("max_message", 10),
-            },
+            state=state,
+            reason=response.reason,
+            usages_data=usages_data,
+            next_type=next_type
         )
 
     supervisor_node.__name__ = node_name

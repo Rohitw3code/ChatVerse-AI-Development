@@ -1,25 +1,59 @@
-
+from typing import List
 from typing_extensions import Literal
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from pydantic import BaseModel, Field
+from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.types import Command
+from langchain_community.callbacks import get_openai_callback
+
 from chatagent.config.init import llm
 from chatagent.utils import State, usages
-from langchain_community.callbacks import get_openai_callback
-from pydantic import BaseModel, Field
-from typing import List
-from langchain_community.callbacks.openai_info import OpenAICallbackHandler
 
-callback_handler = OpenAICallbackHandler()
 
 class Plan(BaseModel):
-    """Plan to follow in future"""
+    """Structured plan with ordered steps for task execution."""
+    steps: List[str] = Field(description="Ordered list of steps to follow for completing the user's request.")
 
-    steps: List[str] = Field(
-        description="different steps to follow, should be in sorted order"
-    )
-    # reason: str = Field(
-    #     description="overall reason and explaination about the steps in short"
-    # )
+
+def make_planner_node(node_name: str = "planner_node"):
+    """
+    Factory function creating a planner node that generates step-by-step plans.
+    Uses available agents from state to create context-aware plans.
+    """
+
+    def planner(state: State) -> Command[Literal["task_selection_node"]]:
+        """Generate a structured plan based on user input and available agents."""
+        available_agents = state.get("agents", [])
+        
+        # Build agent descriptions for prompt
+        if not available_agents:
+            agents_desc = ["- No specific agents found for this query."]
+        else:
+            agents_desc = [f"- {agent['name']}: {agent['description']}" for agent in available_agents]
+
+        # Build concise planning prompt
+        planner_prompt = (
+            "You are a planning agent. Create a clear, step-by-step plan for the user's request.\n\n"
+            f"Available agents & tools:\n{chr(10).join(agents_desc)}\n\n"
+            "Rules:\n"
+            "- Use ONLY the exact agent names listed above.\n"
+            "- Do NOT add actions not explicitly requested by the user.\n"
+            "- Keep the plan concise with only essential steps.\n"
+            "- Don't over-divide tasks into unnecessary sub-steps.\n"
+            "- If information is missing, include a step to ask the user.\n"
+            "- Only include approval steps if explicitly requested.\n"
+        )
+
+        with get_openai_callback() as cb:
+            message_content = f"{planner_prompt}\n\nUser Query: {state['input']}"
+            
+            print("\n\n", "=" * 20, " Planner Node Invoked ", "=" * 20)
+            print("Generating plan for:", state['input'])
+
+            result: Plan = llm.with_structured_output(Plan).invoke([
+                HumanMessage(content=message_content)
+            ])
+        
+        print(f"📝 Generated plan: {result.steps}\n")
 
 
 def make_planner_node(node_name="planner_node"):
@@ -72,22 +106,18 @@ def make_planner_node(node_name="planner_node"):
 
         usages_data = usages(cb)
 
-        # Convert structured Plan → AIMessage for traceability
-        plan_text = "\n".join(
-            [
-                f"Step {i+1}: {s}"
-                for i, s in enumerate(result.steps)
-            ]
-        )
+        # Format plan for display
+        plan_text = "\n".join([f"Step {i+1}: {step}" for i, step in enumerate(result.steps)])
 
         return Command(
+            goto="task_selection_node",
             update={
                 "input": state["input"],
-                "messages": [AIMessage(content=f"{plan_text}")],
-                "current_message": [AIMessage(content=f"{plan_text}")],
-                # "reason": result.reason,
+                "messages": [AIMessage(content=plan_text)],
+                "current_message": [AIMessage(content=plan_text)],
                 "provider_id": state.get("provider_id"),
-                "next_node": "task_dispatcher_node",
+                "node": node_name,
+                "next_node": "task_selection_node",
                 "type": "planner",
                 "next_type": "thinker",
                 "usages": usages_data,
@@ -97,7 +127,6 @@ def make_planner_node(node_name="planner_node"):
                 "tool_output": state.get("tool_output"),
                 "max_message": state.get("max_message", 10),
             },
-            goto="task_selection_node",
         )
 
     planner.__name__ = node_name
