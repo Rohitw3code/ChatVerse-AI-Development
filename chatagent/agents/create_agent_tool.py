@@ -94,18 +94,12 @@ def make_agent_tool_node(
                 if name in tools:
                     tool_to_run = tools[name]
                     tool_input = {**args}
-                    try:
-                        out = await tool_to_run.ainvoke(
-                            tool_input, config={"callbacks": [callback_handler]}
-                        )
-                        print(f"\n\nTool '{name}' executed successfully with output: {out}\n\n")
-                    except Exception as e:
-                        print(f"\n\nTool execution error: {type(e).__name__}: {e}")
-                        # Handle GraphInterrupt as a non-error informational message
-                        if type(e).__name__ == 'GraphInterrupt':
-                            out = "Connection/auth flow initiated. Please complete the requested action."
-                        else:
-                            out = f"Error: {type(e).__name__}: {str(e)}"
+
+                    out = await tool_to_run.ainvoke(
+                        tool_input, config={"callbacks": [callback_handler]}
+                    )
+
+                    print(f"\n\nTool '{name}' executed successfully with output: {out}\n\n")
 
                     # Normalize output to string for checks/storage
                     if isinstance(out, (dict, list)):
