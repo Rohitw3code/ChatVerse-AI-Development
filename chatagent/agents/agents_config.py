@@ -22,7 +22,7 @@ AGENTS_CONFIG: List[AgentConfig] = [
         "name": "gmail_agent_node",
         "description": (
             "Email agent: draft emails, send emails, read Gmail messages, handle email communication. "
-            "Keywords: email, gmail, send, draft, mail, message, compose"
+            "Keywords: email, gmail, send, draft, mail, message, compose, login to gmail"
         ),
         "prompt": (
             "You are a Gmail Manager Agent.\n"
@@ -32,7 +32,8 @@ AGENTS_CONFIG: List[AgentConfig] = [
             "1. Perform the requested Gmail-related action.\n"
             "2. If data cannot be retrieved, explain the exact reason clearly.\n"
             "3. If authentication is missing, instruct the user to connect or re-authenticate Gmail.\n"
-            "4. After completing or failing the task, END the task."
+            "4. If a gmail connection issue or token expiration occurs, ask the user to reconnect their Gmail account.\n"
+            "5. After completing or failing the task, END the task."
         ),
         "module_path": "chatagent.agents.gmail.gmail_agent",
         "node_function": "gmail_agent_node"

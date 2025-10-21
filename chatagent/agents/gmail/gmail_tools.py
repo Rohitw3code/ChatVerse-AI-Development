@@ -417,8 +417,9 @@ def ask_human(
 @tool("gmail_error")
 def gmail_error(params: str = Field(..., description="error reason")) -> str:
     """
-    Notifies the user of a Gmail connection error and asks them to connect their account.
-    if user has not connected the gmail
+    if user has not connected the gmail, user ask to connect the gmail account
+    if gmail connection issue occurs, ask the user to reconnect the gmail account
+    if gmail token expired, ask the user to reconnect the gmail account
     """
     print("gmail connection issue")
     user_input = interrupt(
