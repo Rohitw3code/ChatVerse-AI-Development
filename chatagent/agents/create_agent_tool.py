@@ -1,18 +1,14 @@
 from chatagent.utils import State, usages
 from langchain_core.messages import AIMessage, ToolMessage
-from typing import Literal
-from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.graph import END
 from langgraph.types import Command
 from chatagent.utils import State
 from langchain_core.messages import AIMessage, ToolMessage,SystemMessage
-from typing import Literal
 from langchain_community.callbacks.openai_info import OpenAICallbackHandler
 from chatagent.utils import usages
 from langgraph.config import get_stream_writer
 from chatagent.node_registry import NodeRegistry
 from chatagent.model.tool_output import ToolOutput
-from langchain_core.runnables import RunnableConfig
 from langchain_community.callbacks import get_openai_callback
 
 
@@ -166,7 +162,6 @@ def make_agent_tool_node(
                     "plans": state.get("plans", []),
                     "current_task": state.get("current_task", "NO TASK"),
                     "max_message": state.get("max_message", 10),
-                    # mark as in progress while tools are being executed
                     "task_status": "in_progress",
                 },
             )
@@ -187,7 +182,6 @@ def make_agent_tool_node(
                     "plans": state.get("plans", []),
                     "current_task": state.get("current_task", "NO TASK"),
                     "max_message": state.get("max_message", 10),
-                    # agent did not request any tools -> assume task done
                     "task_status": "completed",
                 },
             )

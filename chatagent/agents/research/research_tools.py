@@ -9,7 +9,6 @@ from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 from chatagent.config.init import non_stream_llm
 from chatagent.utils import log_tool_event, usages
-from langgraph.types import interrupt
 from langchain_tavily import TavilySearch
 from langchain_community.callbacks import get_openai_callback
 from chatagent.model.tool_output import ToolOutput
