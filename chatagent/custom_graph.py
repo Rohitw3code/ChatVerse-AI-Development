@@ -10,15 +10,16 @@ from chatagent.model.chat_agent_model import StreamChunk
 
 from chatagent.agents.supervisor_agent import make_supervisor_node
 from chatagent.agents.planner_agent import make_planner_node
-from chatagent.agents.social_media_manager.gmail.email_agent import gmail_agent_node
-from chatagent.agents.social_media_manager.instagram.instagram_agent import instagram_agent_node
-# Import the new youtube agent
-from chatagent.agents.social_media_manager.youtube.youtube_agent import youtube_agent_node
-from chatagent.agents.research.research_agent import research_agent_node
+
+# Import agents from unified location
+from chatagent.agents.gmail import gmail_agent_node
+from chatagent.agents.instagram import instagram_agent_node
+from chatagent.agents.youtube import youtube_agent_node
+from chatagent.agents.research import research_agent_node
+
 from chatagent.agents.final_node import final_answer_node
 from chatagent.node_registry import NodeRegistry
 from chatagent.db.database import Database
-from chatagent.prompt.node_prompt import PROMPTS
 from chatagent.agents.task_selection import task_selection_node
 from chatagent.agents.task_dispatcher import task_dispatcher
 from langchain_core.runnables import RunnableConfig
@@ -31,6 +32,9 @@ from config import BaseConfig
 from chatagent.db.database_manager import DatabaseManager
 from chatagent.agents.inputer_agent import inputer
 from chatagent.agents.agent_search_node import search_agent_node
+
+# Import centralized agent configuration
+from chatagent.agents.agents_config import AGENTS_CONFIG
 
 
 
@@ -49,25 +53,21 @@ selection_node = task_selection_node()
 
 
 main_register = NodeRegistry()
-main_register.add(
-    "instagram_agent_node",
-    instagram_agent_node,
-    "agent",
-    PROMPTS.social_media_manager_node,
-)
-main_register.add(
-    "gmail_agent_node", gmail_agent_node, "agent",
-    "Handle all tasks related to Gmail or Email (reading, drafting, sending, replying, searching, or managing). Always trigger if the query is Gmail/Email-related."
-)
-main_register.add(
-    "research_agent_node", research_agent_node, "agent",
-    "Handle all tasks related to searching, looking up, or finding information from the internet (e.g., LinkedIn, Google, web). Always trigger if the query implies search or research."
-)
 
-main_register.add(
-    "youtube_agent_node", youtube_agent_node, "agent",
-    "Youtube agent to handle all tasks related to YouTube such as fetching channel details, video management, comments, and analytics. Always trigger if the query is YouTube-related."
-)
+# Dynamically add agents from centralized configuration
+for agent_config in AGENTS_CONFIG:
+    agent_name = agent_config["name"]
+    agent_prompt = agent_config["prompt"]
+    
+    # Import the agent node
+    if agent_name == "gmail_agent_node":
+        main_register.add(agent_name, gmail_agent_node, "agent", agent_prompt)
+    elif agent_name == "instagram_agent_node":
+        main_register.add(agent_name, instagram_agent_node, "agent", agent_prompt)
+    elif agent_name == "youtube_agent_node":
+        main_register.add(agent_name, youtube_agent_node, "agent", agent_prompt)
+    elif agent_name == "research_agent_node":
+        main_register.add(agent_name, research_agent_node, "agent", agent_prompt)
 
 task_dispatcher_node = task_dispatcher(
     registry=main_register

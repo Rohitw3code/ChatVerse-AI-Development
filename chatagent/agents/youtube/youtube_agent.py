@@ -1,36 +1,36 @@
 """
-Research Agent Module
-Handles all research-related operations without hardcoded prompts.
+YouTube Agent Module
+Handles all YouTube-related operations without hardcoded prompts.
 All prompts are managed through agents_config.py
 """
 
 from chatagent.agents.create_agent_tool import make_agent_tool_node
-from chatagent.agents.research.research_tools import get_research_tool_registry
+from chatagent.agents.youtube.youtube_tools import get_youtube_tool_registry
 
 
-def create_research_agent_node(prompt: str = None):
+def create_youtube_agent_node(prompt: str = None):
     """
-    Factory function to create Research agent node with dynamic prompt.
+    Factory function to create YouTube agent node with dynamic prompt.
     
     Args:
         prompt (str, optional): Custom prompt for the agent. 
                                If None, loads from agents_config.py
     
     Returns:
-        Agent node configured with Research tools
+        Agent node configured with YouTube tools
     """
     if prompt is None:
         from chatagent.agents.agents_config import get_agent_config
-        config = get_agent_config("research_agent_node")
+        config = get_agent_config("youtube_agent_node")
         prompt = config["prompt"]
     
     return make_agent_tool_node(
-        members=get_research_tool_registry(),
+        members=get_youtube_tool_registry(),
         prompt=prompt,
-        node_name="research_agent_node",
+        node_name="youtube_agent_node",
         parent_node="task_dispatcher_node",
     )
 
 
 # Default instance for backward compatibility
-research_agent_node = create_research_agent_node()
+youtube_agent_node = create_youtube_agent_node()
