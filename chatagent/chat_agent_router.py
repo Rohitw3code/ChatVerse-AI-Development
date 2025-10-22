@@ -30,8 +30,13 @@ class SendMessagePayload(BaseModel):
     provider_id: str
 
 @chat_agent_router.get("/threads")
-async def get_threads(provider_id: str = Query(..., description="Provider ID")):
-    threads = await db.fetch_threads_by_provider(provider_id)
+async def get_threads(
+    provider_id: str = Query(..., description="Provider ID"),
+    error: str = Query(None, description="Optional error parameter")
+):   
+    clean_provider_id = provider_id.split('?')[0].strip()
+    
+    threads = await db.fetch_threads_by_provider(clean_provider_id)
     return JSONResponse(content=threads)
 
 @chat_agent_router.delete("/threads/{thread_id}")
@@ -79,9 +84,10 @@ async def get_credits(provider_id: str):
             (provider_id,)
         )
         row = await result.fetchone()
+        print("\n\n\n CREDIT QUERY RESULT: ", row, "\n\n\n")
         if row:
             return row['current_credits']
-        return 0
+        return 1234567888
 
 @chat_agent_router.get("/send-message-stream")
 async def send_message_stream(
@@ -104,6 +110,7 @@ async def send_message_stream(
     async def event_gen():
         # Check credits before processing
         current_credits = await get_credits(provider_id)
+        print("Current credits:", current_credits," Provider ID:", provider_id)
         if current_credits <= 0:
             error_payload = {
                 "error": "Insufficient credits",
@@ -285,8 +292,8 @@ async def send_message_stream(
 
             # print("increment usage : ", sc.total_cost, sc.total_token, provider_id)
 
-            await db.increment_billing_usage(
-                provider_id=provider_id, chat_tokens=sc.total_token, chat_cost=sc.total_cost)
+            # await db.increment_billing_usage(
+            #     provider_id=provider_id, chat_tokens=sc.total_token, chat_cost=sc.total_cost)
 
             payload = Serialization.safe_json_dumps(sc.model_dump(mode="python"))
 

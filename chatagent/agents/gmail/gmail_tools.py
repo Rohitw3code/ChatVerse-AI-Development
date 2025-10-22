@@ -29,6 +29,8 @@ from chatagent.agents.gmail.gmail_models import (
 from dotenv import load_dotenv
 from langchain_core.runnables import RunnableConfig
 from chatagent.utils import get_user_id
+from email.mime.text import MIMEText
+import base64
 import os
 
 load_dotenv()
@@ -327,17 +329,27 @@ def draft_gmail(
 
 
 @tool("send_gmail", args_schema=SendGmailInput)
-def send_gmail(recipient: str, subject: str, body: str) -> str:
+def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig = None) -> str:
     """
     Sends a Gmail after getting final approval from the user. Requires the recipient, subject, and body.
     """
     params = SendGmailInput(recipient=recipient, subject=subject, body=body)
-    content = f"""{body}"""
+    
+    # Show email preview to user
+    preview_content = f"""
+        📧 Email Preview:
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        To: {recipient}
+        Subject: {subject}
+
+        {body}
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    """
 
     interrupt_request = InterruptRequest.create_input_option(
         name="send_gmail",
-        title="Do you want to send this Gmail??",
-        content=content,
+        title="Do you want to send this email?",
+        content=preview_content,
         options=["Yes", "No"]
     )
     
@@ -346,33 +358,104 @@ def send_gmail(recipient: str, subject: str, body: str) -> str:
     print("approval:", approval)
 
     if approval.strip().lower() == "yes":
-        tool_output = f"""
-        ✅ Gmail sent!
-        To: {params.recipient}
-        Subject: {params.subject}
-        Body (preview): {params.body[:100]}
-        """
+        # Actually send the email
+        try:
+            user_id = get_user_id(config)
+            
+            # Get Gmail credentials from database
+            gmail_data = (
+                supabase.table("connected_accounts")
+                .select("*")
+                .eq("provider_id", user_id)
+                .eq("platform", "gmail")
+                .execute()
+            )
 
+            if not gmail_data.data:
+                tool_output = "❌ Gmail account is not connected. Please connect your Gmail account first."
+                log_tool_event(
+                    tool_name="send_gmail",
+                    status="failed",
+                    params=params.dict(),
+                    parent_node="gmail_agent_node",
+                    tool_output=ToolOutput(output=tool_output),
+                )
+                return tool_output
+
+            # Build credentials
+            data = gmail_data.data[0]
+            creds = Credentials.from_authorized_user_info(
+                {
+                    "token": data["access_token"],
+                    "refresh_token": data["refresh_token"],
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "client_id": google_client_id,
+                    "client_secret": google_client_secret,
+                    "scopes": data["scopes"],
+                    "universe_domain": "googleapis.com",
+                }
+            )
+
+            service = build("gmail", "v1", credentials=creds)
+
+            # Create email message
+            message = MIMEText(body)
+            message['to'] = recipient
+            message['subject'] = subject
+            
+            # Encode the message
+            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+            
+            # Send the email
+            send_result = service.users().messages().send(
+                userId="me",
+                body={'raw': raw_message}
+            ).execute()
+
+            tool_output = f"""
+                ✅ Email sent successfully!
+                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                To: {recipient}
+                Subject: {subject}
+                Message ID: {send_result.get('id', 'N/A')}
+                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+                Your email has been delivered successfully! 📬
+            """
+
+            log_tool_event(
+                tool_name="send_gmail",
+                status="success",
+                params=params.dict(),
+                parent_node="gmail_agent_node",
+                tool_output=ToolOutput(output=tool_output, show=True),
+            )
+            return tool_output
+
+        except Exception as e:
+            error_message = str(e)
+            tool_output = f"❌ Failed to send email: {error_message}"
+            log_tool_event(
+                tool_name="send_gmail",
+                status="failed",
+                params=params.dict(),
+                parent_node="gmail_agent_node",
+                tool_output=ToolOutput(output=tool_output),
+            )
+            return tool_output
+            
+    elif approval.strip().lower() == "no":
+        tool_output = "❌ Email cancelled. The email was not sent as per your request."
         log_tool_event(
             tool_name="send_gmail",
-            status="success",
-            params=params.dict(),
-            parent_node="gmail_agent_node",
-            tool_output=ToolOutput(output=tool_output),
-        )
-        return tool_output
-    if approval.strip().lower() == "no":
-        tool_output = "Human chose option: No that means Gmail is rejected by the Human no need to send the Gmail"
-        log_tool_event(
-            tool_name="send_gmail",
-            status="failed",
+            status="cancelled",
             params=params.dict(),
             parent_node="gmail_agent_node",
             tool_output=ToolOutput(output=tool_output),
         )
         return tool_output
     else:
-        tool_output = f"Human did not choose any option but added new message follow this message: {approval}"
+        tool_output = f"⚠️ Unexpected response: {approval}\nPlease respond with 'Yes' or 'No' to send or cancel the email."
         log_tool_event(
             tool_name="send_gmail",
             status="failed",

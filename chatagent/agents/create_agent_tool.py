@@ -25,15 +25,28 @@ def make_agent_tool_node(
     print("agent ===> ", members.prompt_block('agent'))
 
     system_prompt = (
-        "You are a helpful agent. Choose the best single tool based on the user's request and the tool descriptions.\n"
-        "If no tool is needed, respond normally. Keep it simple.\n\n"
+        "You are a strict tool-selection agent. Your ONLY job is to choose the single most appropriate tool "
+        "for the CURRENT user task based on the provided tool descriptions.\n\n"
+        "Focus only on the CURRENT task — do not plan, anticipate, or think about future or other tasks.\n"
+        "Do not perform any reasoning, explanation, or conversation beyond selecting a tool.\n"
+        "If no tool is needed, respond directly without calling any tool.\n\n"
+        "Tool Selection Rules:\n"
+        "- Use only ONE tool per request.\n"
+        "- Do NOT call the same tool repeatedly for the same task.\n"
+        "- A tool can be used a MAXIMUM of 2 times in total. If it has already been called twice, "
+        "do NOT call it again.\n"
+        "- If the same tool keeps being selected for the same task, STOP calling any tools for that task "
+        "and respond normally instead.\n"
+        "- Do not execute, plan, or queue future actions — handle only the active task at hand.\n\n"
+        "Auth Handling:\n"
+        "- If a tool output or error indicates 'token expired', 'not connected', or 'not authenticated':\n"
+        "  1. Try a verify-connection tool (name contains 'verify' and 'connection').\n"
+        "  2. If unavailable, use a login/connect tool (name contains 'login' or 'connect').\n"
+        "  3. After re-authentication, retry the current task ONCE.\n\n"
         "Available tools (name [type]: description):\n"
-        f"{members.prompt_block('agent')}\n\n"
-        "Auth handling (simple):\n"
-        "- If a tool output or error indicates token expired / not connected / not authenticated,\n"
-        "  first try a verify-connection tool (name contains 'verify' and 'connection'). If not available,\n"
-        "  call a login/connect tool (name contains 'login' or 'connect'). Then continue the task.\n"
+        f"{members.prompt_block('agent')}\n"
     )
+
 
     async def agent_tool_node(state: State) -> Command:
         # Import stream_llm for regular text generation with tools
