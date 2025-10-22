@@ -19,6 +19,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from supabase_client import supabase
 from chatagent.model.tool_output import ToolOutput
+from chatagent.model.interrupt_model import InterruptRequest
 from dotenv import load_dotenv
 from langchain_core.runnables import RunnableConfig
 from chatagent.utils import get_user_id
@@ -351,17 +352,14 @@ def send_gmail(recipient: str, subject: str, body: str) -> str:
     params = SendGmailInput(recipient=recipient, subject=subject, body=body)
     content = f"""{body}"""
 
-    approval = interrupt(
-        {
-            "name": "send_gmail",
-            "type": "input_option",
-            "data": {
-                "title": "Do you want to send this Gmail??",
-                "content": content,
-                "options": ["Yes", "No"],
-            },
-        }
+    interrupt_request = InterruptRequest.create_input_option(
+        name="send_gmail",
+        title="Do you want to send this Gmail??",
+        content=content,
+        options=["Yes", "No"]
     )
+    
+    approval = interrupt(interrupt_request.to_dict())
 
     print("approval:", approval)
 
@@ -410,7 +408,12 @@ def ask_human(
     """
     Asks the user for clarification or missing information. Use when details like a recipient's email or message content are needed.
     """
-    user_input = interrupt({"type": "input_field", "data": {"title": params}})
+    interrupt_request = InterruptRequest.create_input_field(
+        name="ask_human",
+        title=params
+    )
+    
+    user_input = interrupt(interrupt_request.to_dict())
     return f"AI : {params}\nHuman : {user_input}"
 
 
@@ -422,14 +425,15 @@ def login_to_gmail(params: str = Field(..., description="error reason")) -> str:
     if gmail token expired, ask the user to reconnect the gmail account
     """
     print("gmail connection issue")
-    user_input = interrupt(
-        {
-            "name": "gmail_error",
-            "type": "connect",
-            "platform": "gmail",
-            "data": {"title": params, "content": ""},
-        }
+    
+    interrupt_request = InterruptRequest.create_connect(
+        name="gmail_error",
+        platform="gmail",
+        title=params,
+        content=""
     )
+    
+    user_input = interrupt(interrupt_request.to_dict())
     return str(user_input)
 
 

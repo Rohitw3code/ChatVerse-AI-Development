@@ -12,6 +12,7 @@ from langgraph.types import interrupt
 from chatagent.agents.instagram import instagram_profile
 from supabase_client import supabase
 from chatagent.model.tool_output import ToolOutput
+from chatagent.model.interrupt_model import InterruptRequest
 from chatagent.utils import get_user_id
 from langchain_core.runnables import RunnableConfig
 from typing_extensions import Annotated
@@ -118,18 +119,19 @@ async def profile_insight(config: RunnableConfig):
 
 
 @tool("ask_human")
-def ask_human(
-    params: str = Field(..., description="What clarification is needed from the user")
-) -> str:
+def ask_human(params: str = Field(..., description="What to ask the human")) -> str:
     """
     Ask the human user for additional input or confirmation.
     Only call this tool when you have valid evidence that specific input data is required—do not assume.
     For example, do not ask for an ID or any other detail unless the requirement has already been explicitly mentioned.
     This tool is used when the Instagram agent does not have enough information to proceed or when explicit confirmation from the user is necessary.
     """
-    user_input = interrupt(
-        {"name": "ask_human", "type": "input_field", "data": {"title": params}}
+    interrupt_request = InterruptRequest.create_input_field(
+        name="ask_human",
+        title=params
     )
+    
+    user_input = interrupt(interrupt_request.to_dict())
     return str(user_input)
 
 
@@ -140,14 +142,14 @@ def instagram_error(params: str = Field(..., description="error reason")) -> str
     The error could be related to the authentication.
     Ask the user to connect the instagram account.
     """
-    user_input = interrupt(
-        {
-            "name": "instagram_error",
-            "type": "connect",
-            "platform": "instagram",
-            "data": {"title": params, "content": ""},
-        }
+    interrupt_request = InterruptRequest.create_connect(
+        name="instagram_error",
+        platform="instagram",
+        title=params,
+        content=""
     )
+    
+    user_input = interrupt(interrupt_request.to_dict())
     return str(user_input)
 
 
