@@ -11,7 +11,9 @@ from chatagent.node_registry import NodeRegistry
 from chatagent.model.tool_output import ToolOutput
 from langchain_community.callbacks import get_openai_callback
 from pydantic import BaseModel, Field
+from chatagent.config.init import stream_llm
 from typing import Literal
+
 
 
 callback_handler = OpenAICallbackHandler()
@@ -66,11 +68,7 @@ def make_agent_tool_node(
     )
 
 
-    async def agent_tool_node(state: State) -> Command:
-        # Import stream_llm for regular text generation with tools
-        from chatagent.config.init import stream_llm
-        
-        # Safety mechanism: Track consecutive agent calls to prevent infinite loops
+    async def agent_tool_node(state: State) -> Command[Literal["task_dispatcher_node",node_name]]:   
         agent_call_count = state.get("agent_call_count", 0) + 1
         max_agent_calls = 3  # Maximum consecutive calls before forcing completion
         
