@@ -78,7 +78,7 @@ def task_dispatcher(registry: NodeRegistry):
             },
         )
 
-    def task_dispatcher_node(state: State) -> Command:
+    def task_dispatcher_node(state: State) -> Command[Literal[*members]]:
         """Main dispatcher logic that routes tasks and handles completion/retry scenarios."""
         remaining_plans = state.get('plans', [])
         current_task = state.get('current_task', '')

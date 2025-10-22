@@ -27,7 +27,7 @@ def search_agent_node():
         Query: "launch rocket to Mars" → select [], sufficient=False (no capable agents)
     """
 
-    def search_agent(state: State) -> Command[Literal["search_agent_node", "planner_node", "__end__"]]:
+    def search_agent(state: State) -> Command[Literal["search_agent_node", "planner_node", "final_answer_node"]]:
         
         from chatagent.agents.agent_retrival import get_relevant_agents
 
@@ -140,7 +140,7 @@ def search_agent_node():
                 "current_message": [AIMessage(content=final_reason)],
                 "reason": final_reason,
                 "provider_id": state.get("provider_id"),
-                "next_node": "__end__",
+                "next_node": "final_answer_node",
                 "type": "agent_searcher",
                 "next_type": "end",
                 "agents": selected_agents,
@@ -150,7 +150,7 @@ def search_agent_node():
                 "tool_output": state.get("tool_output"),
                 "max_message": state.get("max_message", 10),
             },
-            goto="__end__"
+            goto="final_answer_node"
         )
         
     return search_agent

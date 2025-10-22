@@ -15,5 +15,5 @@ class Router(BaseModel):
     )
     reason: str = Field(
         ...,
-        description="Short message to the user as if you're starting to work on their request (max 15 words). Examples: 'I'll help you with this task.', 'Let me answer that for you.'"
+        description="Short message to the user as if you're starting to work on their request (max 15 words). Examples: 'I'll help you with this task.', 'Let me answer that for you.' "
     )

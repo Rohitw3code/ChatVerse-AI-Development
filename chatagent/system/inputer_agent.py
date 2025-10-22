@@ -40,7 +40,7 @@ class InputRouter:
             """
         )
 
-    async def route(self, state: State) -> Command[Literal["search_agent_node", "__end__"]]:
+    async def route(self, state: State) -> Command[Literal["search_agent_node", "final_answer_node"]]:
         """Pick next node: actionable -> search_agent_node, simple -> finish."""
         recent_messages = state["messages"][-state.get("max_message", 20):]
         recent_messages.append(HumanMessage(content=state["input"]))
@@ -82,8 +82,8 @@ class InputRouter:
         }
 
         if decision.next.lower() == "finish":
-            common_update.update({"next_node": "__end__", "next_type": "thinker"})
-            return Command(update=common_update, goto="__end__")
+            common_update.update({"next_node": "final_answer_node", "next_type": "thinker"})
+            return Command(update=common_update, goto="final_answer_node")
 
         common_update.update({"next_node": "search_agent_node", "next_type": "agent_searcher"})
         return Command(update=common_update, goto="search_agent_node")
