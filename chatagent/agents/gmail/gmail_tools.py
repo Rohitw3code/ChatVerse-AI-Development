@@ -20,6 +20,12 @@ from googleapiclient.discovery import build
 from supabase_client import supabase
 from chatagent.model.tool_output import ToolOutput
 from chatagent.model.interrupt_model import InterruptRequest
+from chatagent.agents.gmail.gmail_models import (
+    SendGmailInput,
+    GmailCount,
+    GmailUnreadCount,
+    GmailDraft
+)
 from dotenv import load_dotenv
 from langchain_core.runnables import RunnableConfig
 from chatagent.utils import get_user_id
@@ -29,30 +35,6 @@ load_dotenv()
 
 google_client_id = os.environ["GOOGLE_CLIENT_ID"]
 google_client_secret = os.environ["GOOGLE_CLIENT_SECRET"]
-
-
-class SendGmailInput(BaseModel):
-    """Schema for sending a Gmail via the send_gmail tool."""
-    recipient: str = Field(..., description="The recipient's email address.")
-    subject: str = Field(..., description="The subject line of the email.")
-    body: str = Field(..., description="The full body content of the email.")
-
-
-class GmailCount(BaseModel):
-    message_count: int = Field(
-        5, description="Number of Gmail messages to fetch. Defaults to 5."
-    )
-
-
-class GmailUnreadCount(BaseModel):
-    message_count: int = Field(
-        5, description="Number of unread Gmail messages to fetch. Defaults to 5."
-    )
-
-
-class GmailDraft(BaseModel):
-    subject: str = Field(..., description="The subject line of the Gmail")
-    body: str = Field(..., description="The professional Gmail body text")
 
 
 @tool("verify_gmail_connection")

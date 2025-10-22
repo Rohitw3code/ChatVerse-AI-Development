@@ -6,14 +6,11 @@ from typing import Literal, Optional
 from chatagent.utils import State, usages
 from chatagent.config.init import non_stream_llm, stream_llm
 from langchain_community.callbacks import get_openai_callback
+from chatagent.system.inputer_models import Router
 
 
 class InputRouter:
     """Routes user input to either agent search or direct answer."""
-
-    class Router(BaseModel):
-        next: Literal["search_agent_node", "finish"]
-        reason: str = Field(description="Short message to the user as if you're starting to work on their request (max 15 words). Examples: 'I'll help you with this task.', 'Let me answer that for you.'")
 
     def __init__(self):
         pass
@@ -63,7 +60,7 @@ class InputRouter:
         messages = [system, *sanitized_messages]
 
         with get_openai_callback() as cb:
-            decision = await non_stream_llm.with_structured_output(self.Router).ainvoke(messages)
+            decision = await non_stream_llm.with_structured_output(Router).ainvoke(messages)
 
         routing_usages = usages(cb)
 

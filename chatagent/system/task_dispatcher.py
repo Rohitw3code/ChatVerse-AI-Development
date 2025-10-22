@@ -6,6 +6,7 @@ from langchain_community.callbacks import get_openai_callback
 
 from chatagent.utils import State, usages
 from chatagent.node_registry import NodeRegistry
+from chatagent.system.task_dispatcher_models import Router
 
 
 def task_dispatcher(registry: NodeRegistry):
@@ -51,22 +52,6 @@ def task_dispatcher(registry: NodeRegistry):
                 </available_nodes>
                 <allowed_choices>{dynamic_allowed_choices}</allowed_choices>
             </prompt>"""
-
-    class Router(BaseModel):
-        """Response model for task routing decisions."""
-        next: str = Field(..., description="Exact node name to call next, or 'END' or 'NEXT_TASK'.")
-        reason: str = Field(..., description="Brief human-readable explanation without revealing internal node names.")
-
-        @field_validator("next")
-        @classmethod
-        def validate_next(cls, v: str) -> str:
-            """Validate and sanitize the next node selection."""
-            if not v or not v.strip():
-                raise ValueError("'next' must not be empty")
-            v = v.strip()
-            # Note: Validation against dynamic allowed_choices happens in the node logic
-            # Here we just ensure it's not empty and trimmed
-            return v
 
     def _create_command(goto: str, state: State, reason: str, usages_data: dict, next_type: str = "thinker", dispatch_retries: int = 0, reset_task_status: bool = False) -> Command:
         """Helper to create consistent Command objects with all required state."""

@@ -6,6 +6,7 @@ from langchain_community.callbacks import get_openai_callback
 
 from chatagent.utils import State, usages
 from chatagent.node_registry import NodeRegistry
+from chatagent.system.supervisor_models import Router
 
 def make_supervisor_node(
     registry: NodeRegistry,
@@ -36,22 +37,16 @@ def make_supervisor_node(
     <allowed_choices>{members}</allowed_choices>
     </prompt>"""
 
-    class Router(BaseModel):
-        """Response model for supervisor routing decisions."""
-        next: str = Field(..., description="Exact node name to call next, or 'BACK', or 'NEXT_TASK'.")
-        reason: str = Field(..., description="Brief human-readable explanation without revealing internal node names.")
-
-        @field_validator("next")
-        @classmethod
-        def validate_next(cls, v: str) -> str:
-            """Validate and sanitize the next node selection."""
-            if not v or not v.strip():
-                raise ValueError("'next' must not be empty")
-            v = v.strip()
-            if v not in members:
-                print(f"[WARN] Invalid next='{v}', falling back to BACK")
-                return "BACK"
-            return v
+    # Custom validator that has access to members
+    def validate_next_with_members(v: str) -> str:
+        """Validate and sanitize the next node selection."""
+        if not v or not v.strip():
+            raise ValueError("'next' must not be empty")
+        v = v.strip()
+        if v not in members:
+            print(f"[WARN] Invalid next='{v}', falling back to BACK")
+            return "BACK"
+        return v
 
     def _create_command(goto: str, state: State, reason: str, usages_data: dict, next_type: str = "thinker", back_count: int = 0, reset_task_status: bool = False) -> Command:
         """Helper to create consistent Command objects with all required state."""
@@ -106,6 +101,8 @@ def make_supervisor_node(
         with get_openai_callback() as cb:
             try:
                 response: Router = non_stream_llm.with_structured_output(Router).invoke(messages)
+                # Apply custom validation with access to members
+                response.next = validate_next_with_members(response.next)
             except Exception as e:
                 print(f"[ERROR] LLM failed to produce valid Router output: {e}")
                 response = Router(next="BACK", reason="LLM invocation failed, escalating back safely.")

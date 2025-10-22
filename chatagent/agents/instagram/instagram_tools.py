@@ -15,15 +15,10 @@ from chatagent.model.tool_output import ToolOutput
 from chatagent.model.interrupt_model import InterruptRequest
 from chatagent.utils import get_user_id
 from langchain_core.runnables import RunnableConfig
-from typing_extensions import Annotated
-from langgraph.prebuilt import InjectedState
 
 
 @tool("instagram_auth_verification")
-def instagram_auth_verification(
-    config: RunnableConfig, 
-    state: Annotated[dict, InjectedState]
-):
+def instagram_auth_verification(config: RunnableConfig):
     """
     This tool is to verify the instagram connection if a user has connected the account or not.
     This tool always used when user asks for any instagram related task which required instagram api.

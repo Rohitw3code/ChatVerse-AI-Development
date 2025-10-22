@@ -7,11 +7,7 @@ from langchain_community.callbacks import get_openai_callback
 
 from chatagent.config.init import non_stream_llm
 from chatagent.utils import State, usages
-
-
-class Plan(BaseModel):
-    """Structured plan with ordered steps for task execution."""
-    steps: List[str] = Field(description="Ordered list of steps to follow for completing the user's request.")
+from chatagent.system.planner_models import Plan
 
 
 def make_planner_node(node_name: str = "planner_node"):

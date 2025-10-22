@@ -8,8 +8,14 @@ from langgraph.graph import StateGraph, START, END
 from chatagent.utils import State
 from chatagent.model.chat_agent_model import StreamChunk
 
-from chatagent.agents.supervisor_agent import make_supervisor_node
-from chatagent.agents.planner_agent import make_planner_node
+# Import system agents
+from chatagent.system.supervisor_agent import make_supervisor_node
+from chatagent.system.planner_agent import make_planner_node
+from chatagent.system.final_node import final_answer_node
+from chatagent.system.task_selection import task_selection_node
+from chatagent.system.task_dispatcher import task_dispatcher
+from chatagent.system.inputer_agent import inputer
+from chatagent.system.agent_search_node import search_agent_node
 
 # Import agents from unified location
 from chatagent.agents.gmail import gmail_agent_node
@@ -17,11 +23,8 @@ from chatagent.agents.instagram import instagram_agent_node
 from chatagent.agents.youtube import youtube_agent_node
 from chatagent.agents.research import research_agent_node
 
-from chatagent.agents.final_node import final_answer_node
 from chatagent.node_registry import NodeRegistry
 from chatagent.db.database import Database
-from chatagent.agents.task_selection import task_selection_node
-from chatagent.agents.task_dispatcher import task_dispatcher
 from langchain_core.runnables import RunnableConfig
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.types import Command
@@ -30,8 +33,6 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 from config import BaseConfig
 from chatagent.db.database_manager import DatabaseManager
-from chatagent.agents.inputer_agent import inputer
-from chatagent.agents.agent_search_node import search_agent_node
 
 # Import centralized agent configuration
 from chatagent.agents.agents_config import AGENTS_CONFIG

@@ -10,16 +10,10 @@ from pydantic import BaseModel, Field
 from chatagent.utils import log_tool_event
 from langgraph.types import interrupt
 from chatagent.model.tool_output import ToolOutput
+from chatagent.agents.youtube.youtube_models import YouTubeChannelDetailsInput
 from langchain_core.runnables import RunnableConfig
 from chatagent.utils import get_user_id
 from chatagent.agents.youtube.youtube_api import get_channel_details
-
-
-class YouTubeChannelDetailsInput(BaseModel):
-    """Input schema for fetching YouTube channel details."""
-    channel_name: str = Field(
-        ..., description="The name of the YouTube channel to fetch details for."
-    )
 
 
 @tool("fetch_youtube_channel_details", args_schema=YouTubeChannelDetailsInput)
