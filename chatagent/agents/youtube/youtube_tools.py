@@ -10,10 +10,17 @@ from pydantic import BaseModel, Field
 from chatagent.utils import log_tool_event
 from langgraph.types import interrupt
 from chatagent.model.tool_output import ToolOutput
-from chatagent.agents.youtube.youtube_models import YouTubeChannelDetailsInput
+from chatagent.agents.youtube.youtube_models import (
+    YouTubeChannelDetailsInput,
+    YouTubeAnalyticsRequest,
+)
 from langchain_core.runnables import RunnableConfig
 from chatagent.utils import get_user_id
-from chatagent.agents.youtube.youtube_api import get_channel_details
+from chatagent.agents.youtube.youtube_api import (
+    get_channel_details,
+    get_analytics_overview,
+    get_top_videos,
+)
 from chatagent.model.tool_output import ToolOutput
 from chatagent.model.interrupt_model import InterruptRequest
 
@@ -37,6 +44,55 @@ async def fetch_youtube_channel_details(channel_name: str, config: RunnableConfi
         tool_name="fetch_youtube_channel_details",
         status="success",
         params={"channel_name": channel_name},
+        parent_node="youtube_agent_node",
+        tool_output=tool_output,
+    )
+    return tool_output
+
+
+@tool("fetch_youtube_analytics_overview", args_schema=YouTubeAnalyticsRequest)
+async def fetch_youtube_analytics_overview(start_date: str, end_date: str, metrics: str = None, max_results: int = 5, config: RunnableConfig = None):
+    """Fetches aggregated analytics for the authenticated user's channel over a date range."""
+    user_id = get_user_id(config)
+    log_tool_event(
+        tool_name="fetch_youtube_analytics_overview",
+        status="started",
+        params={"start_date": start_date, "end_date": end_date, "metrics": metrics},
+        parent_node="youtube_agent_node",
+    )
+
+    if metrics is None:
+        metrics = "views,estimatedMinutesWatched"
+
+    data = await get_analytics_overview(user_id, start_date, end_date, metrics)
+    tool_output = ToolOutput(output=data, show=True, type="format")
+    log_tool_event(
+        tool_name="fetch_youtube_analytics_overview",
+        status="success",
+        params={"start_date": start_date, "end_date": end_date, "metrics": metrics},
+        parent_node="youtube_agent_node",
+        tool_output=tool_output,
+    )
+    return tool_output
+
+
+@tool("fetch_youtube_top_videos", args_schema=YouTubeAnalyticsRequest)
+async def fetch_youtube_top_videos(start_date: str, end_date: str, metrics: str = None, max_results: int = 5, config: RunnableConfig = None):
+    """Fetches top videos by views for the authenticated user's channel over a date range."""
+    user_id = get_user_id(config)
+    log_tool_event(
+        tool_name="fetch_youtube_top_videos",
+        status="started",
+        params={"start_date": start_date, "end_date": end_date, "max_results": max_results},
+        parent_node="youtube_agent_node",
+    )
+
+    data = await get_top_videos(user_id, start_date, end_date, max_results)
+    tool_output = ToolOutput(output=data, show=True, type="format")
+    log_tool_event(
+        tool_name="fetch_youtube_top_videos",
+        status="success",
+        params={"start_date": start_date, "end_date": end_date, "max_results": max_results},
         parent_node="youtube_agent_node",
         tool_output=tool_output,
     )
@@ -66,6 +122,8 @@ def get_youtube_tool_registry() -> NodeRegistry:
     youtube_tool_register = NodeRegistry()
     youtube_tool_register.add("fetch_youtube_channel_details", fetch_youtube_channel_details, "tool")
     youtube_tool_register.add("login_youtube_account", login_youtube_account, "tool")
+    youtube_tool_register.add("fetch_youtube_analytics_overview", fetch_youtube_analytics_overview, "tool")
+    youtube_tool_register.add("fetch_youtube_top_videos", fetch_youtube_top_videos, "tool")
     return youtube_tool_register
 
 

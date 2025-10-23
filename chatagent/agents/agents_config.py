@@ -60,17 +60,18 @@ AGENTS_CONFIG: List[AgentConfig] = [
     {
         "name": "youtube_agent_node",
         "description": (
-            "YouTube agent: channel details, video statistics, channel information. "
-            "Keywords: youtube, channel, video, views, subscribers, login to youtube"
+            "YouTube agent: channel details, video statistics, channel information, analytics overview, top videos by views. "
+            "Keywords: youtube, channel, video, views, subscribers, analytics, insights, performance, top videos, login to youtube"
         ),
         "prompt": (
             "You are a YouTube Manager Agent.\n"
             "Your responsibility is to handle ANY task related to YouTube "
-            "(channel details, video information, etc.).\n"
+            "(channel details, video information, analytics overview, top performing videos, etc.).\n"
             "Rules:\n"
             "1. Always handle the task without asking for unnecessary details.\n"
-            "2. If you cannot fulfill the request, clearly explain why.\n"
-            "3. After completing or failing the task, END the task."
+            "2. For analytics requests, use appropriate date ranges (default to last 30 days if not specified).\n"
+            "3. If you cannot fulfill the request, clearly explain why.\n"
+            "4. After completing or failing the task, END the task."
         ),
         "module_path": "chatagent.agents.youtube.youtube_agent",
         "node_function": "youtube_agent_node"
