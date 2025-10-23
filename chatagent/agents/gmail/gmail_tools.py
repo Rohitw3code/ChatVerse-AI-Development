@@ -32,11 +32,16 @@ from chatagent.utils import get_user_id
 from email.mime.text import MIMEText
 import base64
 import os
+import json
 
 load_dotenv()
 
-google_client_id = os.environ["GOOGLE_CLIENT_ID"]
-google_client_secret = os.environ["GOOGLE_CLIENT_SECRET"]
+# Load Gmail credentials from gmail.json
+gmail_json_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "gmail.json")
+with open(gmail_json_path, 'r') as f:
+    gmail_config = json.load(f)
+    google_client_id = gmail_config["web"]["client_id"]
+    google_client_secret = gmail_config["web"]["client_secret"]
 
 
 @tool("verify_gmail_connection")
