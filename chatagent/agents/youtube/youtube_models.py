@@ -55,3 +55,67 @@ class YouTubeTopVideosItem(BaseModel):
 
 class YouTubeTopVideosResponse(BaseModel):
     items: List[YouTubeTopVideosItem] = []
+
+
+class YouTubeVideoListInput(BaseModel):
+    """Input schema for fetching channel videos."""
+    max_results: Optional[int] = Field(10, description="Maximum number of videos to fetch (1-50)")
+    order: Optional[str] = Field("date", description="Sort order: date, rating, relevance, title, videoCount, viewCount")
+
+
+class YouTubeVideoDetailsInput(BaseModel):
+    """Input schema for fetching video details."""
+    video_id: str = Field(..., description="YouTube video ID")
+
+
+class YouTubeVideoStatsItem(BaseModel):
+    """Stats for a single video."""
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    published_at: Optional[str] = None
+    view_count: Optional[int] = None
+    like_count: Optional[int] = None
+    comment_count: Optional[int] = None
+    duration: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+
+
+class YouTubeCommentsInput(BaseModel):
+    """Input schema for fetching video comments."""
+    video_id: str = Field(..., description="YouTube video ID")
+    max_results: Optional[int] = Field(20, description="Maximum number of comments to fetch")
+
+
+class YouTubeCommentItem(BaseModel):
+    """Single comment item."""
+    author: Optional[str] = None
+    text: Optional[str] = None
+    like_count: Optional[int] = None
+    published_at: Optional[str] = None
+
+
+class YouTubeSearchInput(BaseModel):
+    """Input schema for searching channel content."""
+    query: str = Field(..., description="Search query string")
+    max_results: Optional[int] = Field(10, description="Maximum number of results")
+
+
+class YouTubeTrafficSourcesInput(BaseModel):
+    """Input schema for traffic sources analytics."""
+    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
+    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
+    max_results: Optional[int] = Field(10, description="Max results to return")
+
+
+class YouTubeDemographicsInput(BaseModel):
+    """Input schema for demographics analytics."""
+    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
+    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
+
+
+class YouTubeGeographyInput(BaseModel):
+    """Input schema for geography analytics."""
+    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
+    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
+    max_results: Optional[int] = Field(10, description="Max results to return")

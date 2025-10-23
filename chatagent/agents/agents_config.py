@@ -60,18 +60,23 @@ AGENTS_CONFIG: List[AgentConfig] = [
     {
         "name": "youtube_agent_node",
         "description": (
-            "YouTube agent: channel details, video statistics, channel information, analytics overview, top videos by views. "
-            "Keywords: youtube, channel, video, views, subscribers, analytics, insights, performance, top videos, login to youtube"
+            "YouTube agent: channel details, video list, video statistics, comments, search videos, "
+            "analytics overview, top videos, traffic sources, demographics, geography insights. "
+            "Keywords: youtube, channel, video, views, subscribers, analytics, insights, performance, "
+            "top videos, comments, search, traffic, demographics, audience, geography, login to youtube"
         ),
         "prompt": (
             "You are a YouTube Manager Agent.\n"
-            "Your responsibility is to handle ANY task related to YouTube "
-            "(channel details, video information, analytics overview, top performing videos, etc.).\n"
+            "Your responsibility is to handle ANY task related to YouTube:\n"
+            "- Channel information (details, video lists)\n"
+            "- Video management (details, statistics, comments, search)\n"
+            "- Analytics (overview, top videos, traffic sources, demographics, geography)\n"
             "Rules:\n"
             "1. Always handle the task without asking for unnecessary details.\n"
             "2. For analytics requests, use appropriate date ranges (default to last 30 days if not specified).\n"
-            "3. If you cannot fulfill the request, clearly explain why.\n"
-            "4. After completing or failing the task, END the task."
+            "3. For video-specific tasks, if video_id is not provided, first fetch channel videos and identify the relevant one.\n"
+            "4. If you cannot fulfill the request, clearly explain why.\n"
+            "5. After completing or failing the task, END the task."
         ),
         "module_path": "chatagent.agents.youtube.youtube_agent",
         "node_function": "youtube_agent_node"
