@@ -4,12 +4,17 @@ Handles YouTube API interactions and channel details.
 """
 
 import os
+import json
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from supabase_client import supabase
 
-google_client_id = os.environ.get("YT_GOOGLE_CLIENT_ID")
-google_client_secret = os.environ.get("YT_GOOGLE_CLIENT_SECRET")
+# Load YouTube credentials from youtube.json
+youtube_json_path = os.path.join(os.path.dirname(__file__), "youtube.json")
+with open(youtube_json_path, 'r') as f:
+    youtube_config = json.load(f)
+    google_client_id = youtube_config["web"]["client_id"]
+    google_client_secret = youtube_config["web"]["client_secret"]
 
 
 async def get_youtube_service(user_id: str):
