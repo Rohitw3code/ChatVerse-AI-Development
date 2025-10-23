@@ -161,6 +161,7 @@ def task_dispatcher(registry: NodeRegistry):
         with get_openai_callback() as cb:
             try:
                 response: Router = non_stream_llm.with_structured_output(Router).invoke(messages)
+                print("\n\n\n[DISPATCHER] LLM Response:", response, "\n\n\n")
             except Exception as e:
                 print(f"[ERROR] LLM failed to produce valid Router output: {e}")
                 response = Router(next="END", reason="LLM invocation failed, ending safely.")

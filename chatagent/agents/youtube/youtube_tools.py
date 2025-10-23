@@ -14,6 +14,8 @@ from chatagent.agents.youtube.youtube_models import YouTubeChannelDetailsInput
 from langchain_core.runnables import RunnableConfig
 from chatagent.utils import get_user_id
 from chatagent.agents.youtube.youtube_api import get_channel_details
+from chatagent.model.tool_output import ToolOutput
+from chatagent.model.interrupt_model import InterruptRequest
 
 
 @tool("fetch_youtube_channel_details", args_schema=YouTubeChannelDetailsInput)
@@ -40,6 +42,21 @@ async def fetch_youtube_channel_details(channel_name: str, config: RunnableConfi
     )
     return tool_output
 
+@tool("login_youtube_account")
+async def login_youtube_account(params: str = Field(..., description="error reason")):
+    """Initiates YouTube account login process."""
+    print("youtube connection issue")
+    
+    interrupt_request = InterruptRequest.create_connect(
+        name="youtube_error",
+        platform="youtube",
+        title=params,
+        content=""
+    )
+    
+    user_input = interrupt(interrupt_request.to_dict())
+    return str(user_input)
+
 
 def get_youtube_tool_registry() -> NodeRegistry:
     """
@@ -48,4 +65,8 @@ def get_youtube_tool_registry() -> NodeRegistry:
     """
     youtube_tool_register = NodeRegistry()
     youtube_tool_register.add("fetch_youtube_channel_details", fetch_youtube_channel_details, "tool")
+    youtube_tool_register.add("login_youtube_account", login_youtube_account, "tool")
     return youtube_tool_register
+
+
+

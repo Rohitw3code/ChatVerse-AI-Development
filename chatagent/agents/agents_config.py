@@ -61,7 +61,7 @@ AGENTS_CONFIG: List[AgentConfig] = [
         "name": "youtube_agent_node",
         "description": (
             "YouTube agent: channel details, video statistics, channel information. "
-            "Keywords: youtube, channel, video, views, subscribers"
+            "Keywords: youtube, channel, video, views, subscribers, login to youtube"
         ),
         "prompt": (
             "You are a YouTube Manager Agent.\n"

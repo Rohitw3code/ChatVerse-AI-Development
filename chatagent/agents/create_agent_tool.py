@@ -25,8 +25,6 @@ def make_agent_tool_node(
     parent_node: str = "task_dispatcher_node"
 ):
 
-    print("agent ===> ", members.prompt_block('agent'))
-
     system_prompt = (
         "You are an agent that can choose and call the following tools when needed.\n"
         f"{members.prompt_block('agent')}\n"
@@ -78,10 +76,14 @@ def make_agent_tool_node(
                 sanitized_messages.append(msg)
 
         messages = [SystemMessage(content=system_prompt)] + sanitized_messages
+
+        print("\n\n\n[BIND TOOL ] ",members.runs(), "\n\n\n")
         
         ai_msg: AIMessage = await stream_llm.bind_tools(members.runs()).ainvoke(
             messages, config={"callbacks": [callback_handler]}
         )
+
+        print("\n\n\n[AGENT TOOL NODE] LLM Message:", ai_msg, "\n\n\n")
 
         usages_data = usages(callback_handler)
         tools = members.tools()
