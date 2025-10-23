@@ -338,12 +338,10 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
     # Show email preview to user
     preview_content = f"""
         📧 Email Preview:
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         To: {recipient}
         Subject: {subject}
 
         {body}
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     """
 
     interrupt_request = InterruptRequest.create_input_option(
@@ -414,12 +412,9 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
 
             tool_output = f"""
                 ✅ Email sent successfully!
-                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                 To: {recipient}
                 Subject: {subject}
                 Message ID: {send_result.get('id', 'N/A')}
-                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
                 Your email has been delivered successfully! 📬
             """
 
