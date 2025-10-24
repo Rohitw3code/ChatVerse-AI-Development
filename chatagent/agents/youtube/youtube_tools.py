@@ -296,7 +296,7 @@ def get_youtube_tool_registry() -> NodeRegistry:
     """
     youtube_tool_register = NodeRegistry()
     youtube_tool_register.add("fetch_youtube_channel_details", fetch_youtube_channel_details, "tool")
-    # youtube_tool_register.add("login_youtube_account", login_youtube_account, "tool")
+    youtube_tool_register.add("login_youtube_account", login_youtube_account, "tool")
     youtube_tool_register.add("fetch_youtube_analytics_overview", fetch_youtube_analytics_overview, "tool")
     youtube_tool_register.add("fetch_youtube_top_videos", fetch_youtube_top_videos, "tool")
     youtube_tool_register.add("fetch_youtube_channel_videos", fetch_youtube_channel_videos, "tool")
