@@ -114,7 +114,7 @@ async def fetch_youtube_top_videos(start_date: str, end_date: str, metrics: str 
 
 @tool("login_youtube_account")
 async def login_youtube_account(params: str = Field(..., description="error reason")):
-    """Initiates YouTube account login process."""
+    """login to youtube account tool to handle auth issues or connection issues or based on the user query"""
     print("youtube connection issue")
     
     interrupt_request = InterruptRequest.create_connect(
@@ -296,7 +296,7 @@ def get_youtube_tool_registry() -> NodeRegistry:
     """
     youtube_tool_register = NodeRegistry()
     youtube_tool_register.add("fetch_youtube_channel_details", fetch_youtube_channel_details, "tool")
-    youtube_tool_register.add("login_youtube_account", login_youtube_account, "tool")
+    # youtube_tool_register.add("login_youtube_account", login_youtube_account, "tool")
     youtube_tool_register.add("fetch_youtube_analytics_overview", fetch_youtube_analytics_overview, "tool")
     youtube_tool_register.add("fetch_youtube_top_videos", fetch_youtube_top_videos, "tool")
     youtube_tool_register.add("fetch_youtube_channel_videos", fetch_youtube_channel_videos, "tool")

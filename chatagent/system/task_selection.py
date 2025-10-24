@@ -22,6 +22,8 @@ def task_selection_node(node_name: str = "task_selection_node"):
             current_task = "No tasks left — all plans completed"
             new_plan = []
 
+        print("\n\n\nCurrent Task Selected:", current_task, "\n\n\n")
+
         ai_msg = AIMessage(content=f"Current Task: {current_task}")
 
         return Command(

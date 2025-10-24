@@ -47,8 +47,6 @@ def make_planner_node(node_name: str = "planner_node"):
         with get_openai_callback() as cb:
             message_content = f"{planner_prompt}\n\nUser Query: {state['input']}"
 
-            print("\n\n", "=" * 20, " Planner Node Invoked ", "=" * 20)
-            print("Generating plan for:", state["input"])
 
             result: Plan = non_stream_llm.with_structured_output(Plan).invoke(
                 [HumanMessage(content=message_content)]

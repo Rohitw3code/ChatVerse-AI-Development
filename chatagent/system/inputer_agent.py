@@ -3,7 +3,7 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
-from chatagent.utils import State, usages
+from chatagent.utils import State, usages, sanitize_messages
 from chatagent.config.init import non_stream_llm, stream_llm
 from langchain_community.callbacks import get_openai_callback
 from chatagent.system.inputer_models import Router
@@ -45,15 +45,8 @@ class InputRouter:
         recent_messages = state["messages"][-state.get("max_message", 20):]
         recent_messages.append(HumanMessage(content=state["input"]))
 
-        sanitized_messages = []
-        for i, msg in enumerate(recent_messages):
-            if isinstance(msg, ToolMessage):
-                if i > 0 and isinstance(recent_messages[i - 1], AIMessage) and getattr(
-                    recent_messages[i - 1], "tool_calls", None
-                ):
-                    sanitized_messages.append(msg)
-            else:
-                sanitized_messages.append(msg)
+        # Sanitize messages to ensure proper format
+        sanitized_messages = sanitize_messages(recent_messages)
             
         # First LLM call: Decide routing
         system = SystemMessage(content=self.router_prompt.format(input=state["input"]))

@@ -101,18 +101,10 @@ class StreamChunk(BaseModel):
             if current_message:
                 db_current_message, message_text = prepare_db_current_message_and_text(
                     current_message)
-                last = current_message[-1]
-                if isinstance(last, dict):
-                    role_map = {
-                        "ai": "ai_message",
-                        "assistant": "ai_message",
-                        "user": "human_message"}
-                    role = role_map.get(last.get("role"), "tool_message")
-                else:
-                    role = "ai_message"
+                # Use the utility function to determine role
+                role = get_message_role(current_message[-1])
             else:
                 role = "tool_message"
-                role = "ai_message"
 
         usage = node_data.get("usages", {})
 

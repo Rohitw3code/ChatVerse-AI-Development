@@ -228,6 +228,54 @@ def log_tool_event(
     )
 
 
+def sanitize_messages(messages: list) -> list:
+    """
+    Remove AIMessages with tool_calls that don't have corresponding ToolMessage responses.
+    This ensures LLM context is valid and prevents tool_call orphaning errors.
+    
+    Args:
+        messages: List of LangChain message objects
+        
+    Returns:
+        Sanitized list of messages with proper tool_call/ToolMessage pairing
+    """
+    sanitized = []
+    i = 0
+    while i < len(messages):
+        msg = messages[i]
+        
+        # Handle AIMessage with tool_calls
+        if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
+            has_tool_response = False
+            if i + 1 < len(messages):
+                next_msg = messages[i + 1]
+                if isinstance(next_msg, ToolMessage):
+                    has_tool_response = True
+            
+            if has_tool_response:
+                # Include the AIMessage with tool_calls and the ToolMessage(s)
+                sanitized.append(msg)
+                i += 1
+                while i < len(messages) and isinstance(messages[i], ToolMessage):
+                    sanitized.append(messages[i])
+                    i += 1
+                continue
+            else:
+                # Create a copy without tool_calls to avoid orphaning
+                msg_copy = AIMessage(content=msg.content if msg.content else "Continuing...")
+                sanitized.append(msg_copy)
+        elif isinstance(msg, ToolMessage):
+            # Skip orphaned ToolMessages
+            pass
+        else:
+            # Regular message, keep it
+            sanitized.append(msg)
+        
+        i += 1
+    
+    return sanitized
+
+
 def prepare_db_current_message_and_text(current_message):
     db_current_message, message_text = [], ""
     for msg in reversed(current_message or []):
