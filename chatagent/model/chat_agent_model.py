@@ -75,7 +75,12 @@ class StreamChunk(BaseModel):
                         "data": stream_data[node_name][0].value}}
                 node_name = "interrupt_node"
 
-            node_data = stream_data[node_name]
+            node_data = stream_data.get(node_name)
+            
+            # Handle None node_data
+            if node_data is None:
+                node_data = {}
+            
             current_message = node_data.get("current_message", [])
             db_current_message, message_text = prepare_db_current_message_and_text(
                 current_message)
@@ -84,7 +89,12 @@ class StreamChunk(BaseModel):
             status = "success"
 
         elif stream_type == "custom":
-            node_data = stream_data[node_name]
+            node_data = stream_data.get(node_name)
+            
+            # Handle None node_data
+            if node_data is None:
+                node_data = {}
+            
             status = node_data.get("status", "failed")
             current_message = node_data.get("current_message", [])
 

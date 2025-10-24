@@ -72,6 +72,7 @@ async def get_chat_history(
         limit: int = 20):
     offset = (page - 1) * limit
     history = await db.get_chat_history(provider_id, thread_id, limit, offset)
+    print("History : ",history," provider_id : ", provider_id)
     history_dicts = [dict(row) for row in history]
     encoded_history = jsonable_encoder(history_dicts)
     return JSONResponse(content=encoded_history)
@@ -87,7 +88,7 @@ async def get_credits(provider_id: str):
         print("\n\n\n CREDIT QUERY RESULT: ", row, "\n\n\n")
         if row:
             return row['current_credits']
-        return 1234567888
+        return 0
 
 @chat_agent_router.get("/send-message-stream")
 async def send_message_stream(
@@ -290,10 +291,10 @@ async def send_message_stream(
             except Exception as e:
                 print("⚠️ => Failed to save stream chunk:", e)
 
-            # print("increment usage : ", sc.total_cost, sc.total_token, provider_id)
+            print("increment usage : ", sc.total_cost, sc.total_token, provider_id)
 
-            # await db.increment_billing_usage(
-            #     provider_id=provider_id, chat_tokens=sc.total_token, chat_cost=sc.total_cost)
+            await db.increment_billing_usage(
+                provider_id=provider_id, chat_tokens=sc.total_token, chat_cost=sc.total_cost)
 
             payload = Serialization.safe_json_dumps(sc.model_dump(mode="python"))
 
