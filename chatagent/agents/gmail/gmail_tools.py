@@ -361,11 +361,15 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
         options=["Yes", "No"]
     )
     
-    approval = interrupt(interrupt_request.to_dict())
+    response_json = interrupt(interrupt_request.to_dict())
 
-    print("approval:", approval)
+    response_json = json.loads(response_json)
 
-    if approval.strip().lower() == "yes":
+    print("\n\n\ response json ", " text : ",response_json['text'], " selected option : ",response_json['selected_option'],"\n\n")
+
+    print("\n\n SEND GMAIL approval: ", response_json, type(response_json),"\n\n")
+
+    if response_json['selected_option'].strip().lower() == "yes":
         # Actually send the email
         try:
             user_id = get_user_id(config)
@@ -407,13 +411,13 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
             service = build("gmail", "v1", credentials=creds)
 
             # Create email message
-            message = MIMEText(body)
+            message = MIMEText(response_json['text'])
             message['to'] = recipient
             message['subject'] = subject
             
             # Encode the message
             raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-            
+
             # Send the email
             send_result = service.users().messages().send(
                 userId="me",
@@ -449,7 +453,7 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
             )
             return tool_output
             
-    elif approval.strip().lower() == "no":
+    elif response_json['selected_option'].strip().lower() == "no":
         tool_output = "❌ Email cancelled. The email was not sent as per your request."
         log_tool_event(
             tool_name="send_gmail",
@@ -460,7 +464,7 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
         )
         return tool_output
     else:
-        tool_output = f"⚠️ Unexpected response: {approval}\nPlease respond with 'Yes' or 'No' to send or cancel the email."
+        tool_output = f"User Response : {response_json['text']}"
         log_tool_event(
             tool_name="send_gmail",
             status="failed",
@@ -482,8 +486,13 @@ def ask_human(
         name="ask_human",
         title=params
     )
+
     
     user_input = interrupt(interrupt_request.to_dict())
+
+    print("\n\n User Input : ", user_input,"\n\n")
+
+
     return f"AI : {params}\nHuman : {user_input}"
 
 
