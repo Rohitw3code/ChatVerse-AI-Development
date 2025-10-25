@@ -80,15 +80,15 @@ def make_agent_tool_node(
 
         messages = [SystemMessage(content=system_prompt)] + sanitized_messages
 
-        print("\n\ncurrent task : ",state.get("current_task","NO TASK"))
+        # print("\n\ncurrent task : ",state.get("current_task","NO TASK"))
 
-        print("\n\n\n[BIND TOOL ] ",members.runs(), "\n\n\n")
+        # print("\n\n\n[BIND TOOL ] ",members.runs(), "\n\n\n")
         
         ai_msg: AIMessage = await stream_llm.bind_tools(members.runs()).ainvoke(
             messages, config={"callbacks": [callback_handler]}
         )
 
-        print("\n\n\n[AGENT TOOL NODE] LLM Message:", ai_msg, "\n\n\n")
+        # print("\n\n\n[AGENT TOOL NODE] LLM Message:", ai_msg, "\n\n\n")
 
         usages_data = usages(callback_handler)
         tools = members.tools()

@@ -365,11 +365,11 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
 
     response_json = json.loads(response_json)
 
-    print("\n\n\ response json ", " text : ",response_json['text'], " selected option : ",response_json['selected_option'],"\n\n")
+    print("\n\n\ response json ", " modified_text : ",response_json['modified_text'], " human_response : ",response_json['human_response'],"\n\n")
 
     print("\n\n SEND GMAIL approval: ", response_json, type(response_json),"\n\n")
 
-    if response_json['selected_option'].strip().lower() == "yes":
+    if response_json['human_response'].strip().lower() == "yes":
         # Actually send the email
         try:
             user_id = get_user_id(config)
@@ -411,7 +411,7 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
             service = build("gmail", "v1", credentials=creds)
 
             # Create email message
-            message = MIMEText(response_json['text'])
+            message = MIMEText(response_json['modified_text'])
             message['to'] = recipient
             message['subject'] = subject
             
@@ -453,7 +453,7 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
             )
             return tool_output
             
-    elif response_json['selected_option'].strip().lower() == "no":
+    elif response_json['human_response'].strip().lower() == "no":
         tool_output = "❌ Email cancelled. The email was not sent as per your request."
         log_tool_event(
             tool_name="send_gmail",
@@ -464,7 +464,7 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
         )
         return tool_output
     else:
-        tool_output = f"User Response : {response_json['text']}"
+        tool_output = f"User Response : {response_json['human_response']}"
         log_tool_event(
             tool_name="send_gmail",
             status="failed",
