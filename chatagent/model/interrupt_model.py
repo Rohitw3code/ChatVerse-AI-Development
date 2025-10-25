@@ -17,9 +17,16 @@ class InterruptType(str, Enum):
 
 
 class InterruptData(BaseModel):
-    """Base model for interrupt data payload."""
+    """Base model for interrupt data payload.
+
+    The `content` field now supports JSON payloads (dict) in addition to strings
+    to enable richer UI rendering and data passing.
+    """
     title: str = Field(..., description="The title or question to display to the user")
-    content: str = Field(default="", description="Additional content or context")
+    content: Union[str, Dict[str, Any]] = Field(
+        default="",
+        description="Additional content or context; can be a string or JSON object",
+    )
 
 
 class InputOptionData(InterruptData):
@@ -68,7 +75,7 @@ class InterruptRequest(BaseModel):
         name: str,
         title: str,
         options: list[str],
-        content: str = ""
+        content: Union[str, Dict[str, Any]] = "",
     ) -> "InterruptRequest":
         """
         Factory method to create an input_option interrupt.
@@ -77,7 +84,7 @@ class InterruptRequest(BaseModel):
             name: Unique identifier for the interrupt
             title: Question or prompt to display
             options: List of options for user to choose from
-            content: Additional context (optional)
+            content: Additional context (optional). Supports JSON (dict) for rich data.
             
         Returns:
             InterruptRequest configured for input_option

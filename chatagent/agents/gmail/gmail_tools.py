@@ -345,27 +345,28 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
     """
     params = SendGmailInput(recipient=recipient, subject=subject, body=body)
     
-    # Show email preview to user
-    preview_content = f"""
-        📧 Email Preview:
-        To: {recipient}
-        Subject: {subject}
-
-        {body}
-    """
+    # Show email preview to user as JSON for richer UI handling
+    preview_content = {
+        "type": "send_gmail",
+        "to": recipient,
+        "subject": subject,
+        "body": body,
+    }
 
     interrupt_request = InterruptRequest.create_input_option(
         name="send_gmail",
         title="Do you want to send this email?",
         content=preview_content,
-        options=["Yes", "No"]
+        options=["Yes", "No"],
     )
     
     response_json = interrupt(interrupt_request.to_dict())
 
     response_json = json.loads(response_json)
 
-    print("\n\n\ response json ", " modified_text : ",response_json['modified_text'], " human_response : ",response_json['human_response'],"\n\n")
+    modified_email_json = json.loads(response_json['modified_text'])
+
+    print("\n\n\ response json ", " modified_text : ",modified_email_json, " human_response : ",response_json['human_response'],"\n\n")
 
     print("\n\n SEND GMAIL approval: ", response_json, type(response_json),"\n\n")
 
@@ -411,10 +412,10 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
             service = build("gmail", "v1", credentials=creds)
 
             # Create email message
-            message = MIMEText(response_json['modified_text'])
-            message['to'] = recipient
-            message['subject'] = subject
-            
+            message = MIMEText(modified_email_json['body'])
+            message['to'] = modified_email_json['to']
+            message['subject'] = modified_email_json['subject']
+
             # Encode the message
             raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
@@ -426,8 +427,8 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
 
             tool_output = f"""
                 ✅ Email sent successfully!
-                To: {recipient}
-                Subject: {subject}
+                To: {modified_email_json['to']}
+                Subject: {modified_email_json['subject']}
                 Message ID: {send_result.get('id', 'N/A')}
                 Your email has been delivered successfully! 📬
             """
