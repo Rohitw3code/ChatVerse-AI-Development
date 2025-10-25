@@ -464,7 +464,7 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
         )
         return tool_output
     else:
-        tool_output = f"User Response : {response_json['human_response']}"
+        tool_output = f"Email is not sent here the User order : {response_json['human_response']}"
         log_tool_event(
             tool_name="send_gmail",
             status="failed",
