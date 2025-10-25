@@ -67,7 +67,7 @@ class Database:
         """Add a new message to the chat history."""
         pool = await self.db_manager.get_pool()
         async with pool.connection() as conn:
-            await self._add_message_to_chat(conn, **kwargs)
+            return await self._add_message_to_chat(conn, **kwargs)
 
     async def _add_message_to_chat(self, conn, **kwargs):
         """Helper method to insert a message into the database."""
@@ -78,7 +78,7 @@ class Database:
         data_json = Serialization.safe_json_dumps(kwargs.get("data"))
         tool_output_json = Serialization.safe_json_dumps(kwargs.get("tool_output"))
 
-        await conn.execute(
+        result = await conn.execute(
             """
             INSERT INTO chat_agent (
                 stream_type, provider_id, thread_id, query_id, role, message, node, next_node,
@@ -90,6 +90,7 @@ class Database:
                 %s, %s, %s, %s,%s, %s, %s, %s,
                 %s, %s, %s, %s
             )
+            RETURNING id
             """,
             (
                 kwargs.get("stream_type"),
@@ -114,6 +115,9 @@ class Database:
                 data_json,
             ),
         )
+        row = await result.fetchone()
+        # Return the inserted row id for correlation in payloads
+        return row["id"] if row else None
 
     async def search_messages(self, embedding_vector, provider_id=None, thread_id=None):
         """Search for similar messages in the chat history."""
@@ -180,7 +184,7 @@ class Database:
             result = await conn.execute(
                 """
                 SELECT
-                    id, stream_type, provider_id, thread_id, role, node, next_node,
+                    id, stream_type, provider_id, thread_id, query_id, role, node, next_node,
                     type, next_type, message, reason,
                     current_messages, params, tool_output, usage, status,
                     total_token, total_cost, data, execution_time
@@ -212,6 +216,52 @@ class Database:
             )
 
 
+    async def update_data_by_identifiers(self, *, row_id: int, thread_id: str, query_id: str, data, merge: bool = False):
+        """Update the JSONB data column for a chat_agent row filtered by id, thread_id and query_id.
+
+        Args:
+            row_id: Primary key of the row to update
+            thread_id: Thread identifier
+            query_id: Query identifier stored as text
+            data: A JSON-serializable object to store in data column
+            merge: If True, merges with existing JSONB; otherwise replaces entirely
+
+        Returns:
+            The updated row's id and data as a dict, or None if no row matched.
+        """
+        pool = await self.db_manager.get_pool()
+        async with pool.connection() as conn:
+            payload_json = Serialization.safe_json_dumps(data)
+            if merge:
+                sql = (
+                    """
+                    UPDATE chat_agent
+                    SET data = COALESCE(data, '{}'::jsonb) || %s::jsonb
+                    WHERE id = %s AND thread_id = %s AND query_id = %s
+                    RETURNING id, data
+                    """
+                )
+                params = (payload_json, row_id, thread_id, query_id)
+            else:
+                sql = (
+                    """
+                    UPDATE chat_agent
+                    SET data = %s::jsonb
+                    WHERE id = %s AND thread_id = %s AND query_id = %s
+                    RETURNING id, data
+                    """
+                )
+                params = (payload_json, row_id, thread_id, query_id)
+
+            result = await conn.execute(sql, params)
+            row = await result.fetchone()
+            if not row:
+                return None
+            # result rows support both index and key access depending on driver
+            try:
+                return {"id": row["id"], "data": row["data"]}
+            except Exception:
+                return {"id": row[0], "data": row[1]}
 
     async def get_memory_messages(
         self, provider_id: str, thread_id: str, limit: int = 20, offset: int = 0

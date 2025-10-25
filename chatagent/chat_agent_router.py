@@ -29,6 +29,14 @@ class SendMessagePayload(BaseModel):
     message: str
     provider_id: str
 
+
+class UpdateDataPayload(BaseModel):
+    id: int
+    thread_id: str
+    query_id: str
+    data: dict
+    merge: bool = False
+
 @chat_agent_router.get("/threads")
 async def get_threads(
     provider_id: str = Query(..., description="Provider ID"),
@@ -38,6 +46,30 @@ async def get_threads(
     
     threads = await db.fetch_threads_by_provider(clean_provider_id)
     return JSONResponse(content=threads)
+
+
+@chat_agent_router.patch("/update-data")
+async def update_message_data(payload: UpdateDataPayload):
+    """Update the data JSON for a chat_agent row by id, thread_id and query_id.
+
+    - If merge is False (default), replaces the data entirely.
+    - If merge is True, merges the provided JSON into existing data.
+    """
+    try:
+        updated = await db.update_data_by_identifiers(
+            row_id=payload.id,
+            thread_id=payload.thread_id,
+            query_id=payload.query_id,
+            data=payload.data,
+            merge=payload.merge,
+        )
+        if not updated:
+            return JSONResponse(
+                content={"error": "Row not found for given identifiers"}, status_code=404
+            )
+        return JSONResponse(content={"message": "Data updated", **updated})
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 @chat_agent_router.delete("/threads/{thread_id}")
 async def delete_thread(thread_id: str, request: Request):
@@ -155,7 +187,7 @@ async def send_message_stream(
                 message_embedding = None
 
             try:
-                await db.add_message(
+                _initial_insert_id = await db.add_message(
                     stream_type="updates",
                     provider_id=provider_id,
                     thread_id=chat_id,
@@ -224,6 +256,7 @@ async def send_message_stream(
                         stream_type="messages",
                         provider_id=provider_id,
                         thread_id=chat_id,
+                        query_id=str(query_id),
                         role="ai_message",
                         node=node_name,
                         message=message_chunk.content,
@@ -266,7 +299,7 @@ async def send_message_stream(
                 print("Embedding Error:", str(e))
             
             try:
-                await db.add_message(
+                inserted_id = await db.add_message(
                     stream_type=sc.stream_type,
                     provider_id=sc.provider_id,
                     thread_id=sc.thread_id,
@@ -291,11 +324,21 @@ async def send_message_stream(
             except Exception as e:
                 print("⚠️ => Failed to save stream chunk:", e)
 
+        
+
             print("increment usage : ", sc.total_cost, sc.total_token, provider_id)
+
+            print("Inserted ID : ", inserted_id)
 
             await db.increment_billing_usage(
                 provider_id=provider_id, chat_tokens=sc.total_token, chat_cost=sc.total_cost)
 
+            # Attach the inserted DB row id to the payload for client correlation
+            try:
+                sc.id = inserted_id  # type: ignore[attr-defined]
+                sc.query_id = str(query_id)
+            except Exception:
+                pass
             payload = Serialization.safe_json_dumps(sc.model_dump(mode="python"))
 
             yield f"event: delta\ndata: {payload}\n\n"

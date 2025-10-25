@@ -13,9 +13,12 @@ load_dotenv()
 
 class StreamChunk(BaseModel):
     # basic metadata
+    id: Optional[int] = None
     stream_type: str
     provider_id: str
     thread_id: str
+    query_id: Optional[str] = None
+    query_id: Optional[str] = None
 
     # message info
     role: Optional[str] = None
