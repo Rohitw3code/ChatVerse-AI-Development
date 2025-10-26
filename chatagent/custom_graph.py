@@ -22,6 +22,7 @@ from chatagent.agents.gmail import gmail_agent_node
 from chatagent.agents.instagram import instagram_agent_node
 from chatagent.agents.youtube import youtube_agent_node
 from chatagent.agents.research import research_agent_node
+from chatagent.agents.gdoc import gdoc_agent_node
 
 from chatagent.node_registry import NodeRegistry
 from chatagent.db.database import Database
@@ -69,6 +70,8 @@ for agent_config in AGENTS_CONFIG:
         main_register.add(agent_name, youtube_agent_node, "agent", agent_prompt)
     elif agent_name == "research_agent_node":
         main_register.add(agent_name, research_agent_node, "agent", agent_prompt)
+    elif agent_name == "gdoc_agent_node":
+        main_register.add(agent_name, gdoc_agent_node, "agent", agent_prompt)
 
 task_dispatcher_node = task_dispatcher(
     registry=main_register
@@ -88,6 +91,7 @@ graph_builder.add_node("gmail_agent_node", gmail_agent_node)
 graph_builder.add_node("instagram_agent_node",instagram_agent_node)
 graph_builder.add_node("research_agent_node", research_agent_node)
 graph_builder.add_node("youtube_agent_node", youtube_agent_node)
+graph_builder.add_node("gdoc_agent_node", gdoc_agent_node)
 
 
 graph_builder.add_edge(START, "inputer_node")

@@ -19,6 +19,29 @@ class AgentConfig(TypedDict):
 # Centralized agent configurations
 AGENTS_CONFIG: List[AgentConfig] = [
     {
+        "name": "gdoc_agent_node",
+        "description": (
+            "Google Docs agent: create documents, add/append text, and return shareable URLs. "
+            "Handles authentication prompts and human clarifications when needed. "
+            "Keywords: google docs, gdoc, document, create, append, text, url, link, login to google docs"
+        ),
+        "prompt": (
+            "You are a Google Docs Manager Agent.\n"
+            "Your responsibility is to handle ANY task related to Google Docs: \n"
+            "- Creating a new document with a given title and optional content\n"
+            "- Appending text/content to an existing document\n"
+            "- Returning the document's web URL after operations\n"
+            "Rules:\n"
+            "1. If authentication is missing or token expired, call the login/connect tool.\n"
+            "2. Ask for missing details (like title or content) via the ask-human tool when required.\n"
+            "3. For create operations, default to an empty document when no content is provided.\n"
+            "4. Always return a concise result including the document ID and URL when available.\n"
+            "5. After completing or failing the task, END the task."
+        ),
+        "module_path": "chatagent.agents.gdoc.gdoc_agent",
+        "node_function": "gdoc_agent_node"
+    },
+    {
         "name": "gmail_agent_node",
         "description": (
             "Email agent: draft emails, send emails, read Gmail messages, fetch recent/unread emails, "
