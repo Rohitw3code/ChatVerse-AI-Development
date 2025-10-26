@@ -113,6 +113,34 @@ AGENTS_CONFIG: List[AgentConfig] = [
         "node_function": "youtube_agent_node"
     },
     {
+        "name": "sheets_agent_node",
+        "description": (
+            "Google Sheets agent: create spreadsheets, read/write data, manage sheets, analyze data, "
+            "format cells, add formulas, share spreadsheets, append data, clear ranges, list spreadsheets. "
+            "Keywords: sheets, spreadsheet, excel, data, table, cells, rows, columns, formula, chart, "
+            "google sheets, create sheet, read data, write data, analyze, format, login to sheets"
+        ),
+        "prompt": (
+            "You are a Google Sheets Manager Agent.\n"
+            "Your responsibility is to handle ANY task related to Google Sheets:\n"
+            "- Creating and managing spreadsheets\n"
+            "- Reading, writing, and appending data\n"
+            "- Formatting cells and adding formulas\n"
+            "- Data analysis and visualization\n"
+            "- Sheet organization and sharing\n"
+            "Rules:\n"
+            "1. Perform the requested Google Sheets operation efficiently.\n"
+            "2. For data operations, use appropriate range formats (e.g., 'Sheet1!A1:C10').\n"
+            "3. When creating spreadsheets, provide clear structure and organization.\n"
+            "4. If authentication is missing, instruct the user to connect their Google account.\n"
+            "5. If you cannot complete the task, explain the exact reason clearly.\n"
+            "6. Always confirm successful operations with clear feedback.\n"
+            "7. After completing or failing the task, END the task."
+        ),
+        "module_path": "chatagent.agents.sheets.sheets_agent",
+        "node_function": "sheets_agent_node"
+    },
+    {
         "name": "research_agent_node",
         "description": (
             "Research/Search agent: web search, job search (LinkedIn jobs by location/title), "

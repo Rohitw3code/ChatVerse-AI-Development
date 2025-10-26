@@ -45,7 +45,7 @@ def make_planner_node(node_name: str = "planner_node"):
         )
 
         with get_openai_callback() as cb:
-            message_content = f"{planner_prompt}\n\nUser Query: {state.get("messages")}"
+            message_content = f"{planner_prompt}\n\nUser Query: {state.get('messages')}"
 
 
             result: Plan = non_stream_llm.with_structured_output(Plan).invoke(
