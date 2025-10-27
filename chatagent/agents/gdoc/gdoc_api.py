@@ -26,7 +26,7 @@ async def _get_creds(user_id: str):
         supabase.table("connected_accounts")
         .select("*")
         .eq("provider_id", user_id)
-        .eq("platform", "doc")
+        .eq("platform", "docs")
         .execute()
     )
 

@@ -111,14 +111,20 @@ def create_spreadsheet(title: str, sheet_names: Optional[List[str]] = None, conf
         params={"title": title, "sheet_names": sheet_names},
         parent_node="sheets_agent_node",
     )
+
     
     sheets_data = (
         supabase.table("connected_accounts")
         .select("*")
         .eq("provider_id", user_id)
-        .eq("platform", "sheets")
+        .eq("platform", "google_sheets")
         .execute()
     )
+    print("*"*40)
+    print("creds : ",user_id)
+    print("sheets_data : ",sheets_data)
+    print("*"*40)
+
 
     if not sheets_data.data:
         tool_output = "❌ Google Sheets account is not connected. Please connect your Google account first."
@@ -209,7 +215,7 @@ def read_sheet_data(spreadsheet_id: str, range_name: str, config: RunnableConfig
         supabase.table("connected_accounts")
         .select("*")
         .eq("provider_id", user_id)
-        .eq("platform", "sheets")
+        .eq("platform", "google_sheets")
         .execute()
     )
 
@@ -287,7 +293,7 @@ def write_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], v
         supabase.table("connected_accounts")
         .select("*")
         .eq("provider_id", user_id)
-        .eq("platform", "sheets")
+        .eq("platform", "google_sheets")
         .execute()
     )
 
@@ -512,7 +518,7 @@ def list_spreadsheets(config: RunnableConfig = None):
         supabase.table("connected_accounts")
         .select("*")
         .eq("provider_id", user_id)
-        .eq("platform", "sheets")
+        .eq("platform", "google_sheets")
         .execute()
     )
 
