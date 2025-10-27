@@ -72,7 +72,7 @@ def verify_sheets_connection(config: RunnableConfig):
         supabase.table("connected_accounts")
         .select("platform_user_id")
         .eq("provider_id", user_id)
-        .eq("platform", "sheets")
+        .eq("platform", "google_sheets")
         .execute()
     )
     
@@ -370,7 +370,7 @@ def append_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], 
         supabase.table("connected_accounts")
         .select("*")
         .eq("provider_id", user_id)
-        .eq("platform", "sheets")
+        .eq("platform", "google_sheets")
         .execute()
     )
 
@@ -448,7 +448,7 @@ def clear_sheet_data(spreadsheet_id: str, range_name: str, config: RunnableConfi
         supabase.table("connected_accounts")
         .select("*")
         .eq("provider_id", user_id)
-        .eq("platform", "sheets")
+        .eq("platform", "google_sheets")
         .execute()
     )
 
