@@ -11,6 +11,8 @@ stream_llm = ChatOpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
     streaming=True,
     tags=["stream"],
+    # Try to enable usage tracking
+    stream_usage=True,
 )
 
 # Use non_stream_llm for structured output (Pydantic models)
@@ -18,6 +20,6 @@ non_stream_llm = ChatOpenAI(
     model="gpt-4o-mini",
     temperature=0,
     api_key=os.getenv("OPENAI_API_KEY"),
-    streaming=True,
-    tags=["stream"],
+    streaming=False,  # Disable streaming for structured output
+    tags=["non-stream"],
 )  

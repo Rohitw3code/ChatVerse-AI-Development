@@ -9,8 +9,6 @@ from typing import List
 from langchain_community.callbacks.openai_info import OpenAICallbackHandler
 from chatagent.system.agent_search_models import AgentSelection
 
-callback_handler = OpenAICallbackHandler()
-
 
 def search_agent_node():
     AGENT_SELECTION_PROMPT = """You are an Agent Selector. Analyze the query and select the required agent names.
