@@ -32,7 +32,7 @@ def get_relevant_agents(query, top_k=None, threshold=None):
     query_embedding = get_embedding(query)
     cos_scores = np.array([cosine_similarity(emb, query_embedding) for emb in embeddings])
     if top_k is None and threshold is None:
-        top_k = 3
+        top_k = 4
     if threshold is not None:
         mask = cos_scores >= threshold
         filtered_indices = np.argsort(cos_scores[mask])[::-1]

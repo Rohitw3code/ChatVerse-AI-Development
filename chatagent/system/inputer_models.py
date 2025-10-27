@@ -4,7 +4,7 @@ Contains all Pydantic models specific to inputer (input router) agent operations
 """
 
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Optional
 
 
 class Router(BaseModel):
@@ -15,5 +15,9 @@ class Router(BaseModel):
     )
     reason: str = Field(
         ...,
-        description="Short message to the user as if you're starting to work on their request (max 15 words). Examples: 'I'll help you with this task.', 'Let me answer that for you.' "
+        description="write a short message to the user as if you're starting to work on their request (max 15 words). Examples: 'I'll help you with this task.', 'Let me answer that for you.' "
+    )
+
+    final_answer: Optional[str] = Field(
+        None, description="If `finish`, provide the final assistant answer."
     )

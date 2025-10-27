@@ -32,7 +32,7 @@ def search_agent_node():
         from chatagent.agents.agent_retrival import get_relevant_agents
 
         # Step 1: Get relevant agents using embedding similarity
-        all_relevant_agents = get_relevant_agents(state["input"], top_k=3)  # Reduced from 5 to 3
+        all_relevant_agents = get_relevant_agents(state["input"], top_k=4)  # Reduced from 5 to 3
 
         print("\n\n=== AGENT SEARCH DEBUG ===")
         print(f"Step 1 - Agents from embedding search (top_k=3):", all_relevant_agents)

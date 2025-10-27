@@ -40,30 +40,30 @@ class InputRouter:
             """
         )
 
-    async def route(self, state: State) -> Command[Literal["search_agent_node", "final_answer_node"]]:
+    async def route(
+        self, state: State
+    ) -> Command[Literal["search_agent_node", "final_answer_node"]]:
         """Pick next node: actionable -> search_agent_node, simple -> finish."""
-        recent_messages = state["messages"][-state.get("max_message", 20):]
+        recent_messages = state["messages"][-state.get("max_message", 20) :]
         recent_messages.append(HumanMessage(content=state["input"]))
 
         # Sanitize messages to ensure proper format
         sanitized_messages = sanitize_messages(recent_messages)
-            
+
         # First LLM call: Decide routing
         system = SystemMessage(content=self.router_prompt.format(input=state["input"]))
         messages = [system, *sanitized_messages]
 
         with get_openai_callback() as cb:
-            decision = await non_stream_llm.with_structured_output(Router).ainvoke(messages)
+            decision = await non_stream_llm.with_structured_output(Router).ainvoke(
+                messages
+            )
 
         routing_usages = usages(cb)
 
-        # Use the reason from the router decision
-        ai_message = AIMessage(content=decision.reason)
 
         common_update = {
             "input": state["input"],
-            "messages": [ai_message],
-            "current_message": [ai_message],
             "provider_id": state.get("provider_id"),
             "status": "success",
             "type": "thinker",
@@ -75,10 +75,26 @@ class InputRouter:
         }
 
         if decision.next.lower() == "finish":
-            common_update.update({"next_node": "final_answer_node", "next_type": "thinker"})
-            return Command(update=common_update, goto="final_answer_node")
+            ai_message = AIMessage(content=decision.final_answer)
+            common_update.update(
+                {
+                    "next_node": "__end__",
+                    "next_type": "thinker",
+                    "messages": [ai_message],
+                    "current_message": [ai_message],
+                }
+            )
+            return Command(update=common_update, goto="__end__")
 
-        common_update.update({"next_node": "search_agent_node", "next_type": "agent_searcher"})
+        ai_message = AIMessage(content=decision.reason)
+        common_update.update(
+            {
+                "next_node": "search_agent_node",
+                "next_type": "agent_searcher",
+                "messages": [ai_message],
+                "current_message": [ai_message],
+            }
+        )
         return Command(update=common_update, goto="search_agent_node")
 
 

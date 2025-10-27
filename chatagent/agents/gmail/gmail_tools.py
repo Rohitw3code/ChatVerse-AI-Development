@@ -302,13 +302,22 @@ def draft_gmail(
     gmail_prompt = f"""
     Gmail Request: {params}
 
-    Create a professional Gmail:
-    1. Subject line
-    2. Well-structured body
-    3. Professional tone
-    4. do not include a blank field
-    5. do not include any irrelevant data which is not mentioned by the user
-    6. use 'by chatverse' as your assistant name
+    Write a professional Gmail that includes:
+    1. A clear subject line
+    2. A well-structured body with appropriate paragraphs
+    3. A professional and respectful tone
+    4. No placeholder text — only use information explicitly provided by the user
+    5. No irrelevant or made-up details
+    6. Sign off using "By ChatVerse" as the assistant name
+
+    📌 Formatting Rule:
+    If the user does NOT specify a strict email style:
+    - Use emojis where appropriate
+    - Use bullet points, **bold**, *italic*, and spacing to make the email visually appealing and engaging
+    - Maintain a clean and readable design
+
+    If the user DOES specify a style:
+    - Follow exactly what the user requests (format, tone, and restrictions)
     """
 
     with get_openai_callback() as cb:
