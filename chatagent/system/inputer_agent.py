@@ -61,7 +61,6 @@ class InputRouter:
 
         routing_usages = usages(cb)
 
-
         common_update = {
             "input": state["input"],
             "provider_id": state.get("provider_id"),

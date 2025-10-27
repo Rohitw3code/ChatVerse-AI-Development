@@ -88,7 +88,7 @@ def task_dispatcher(registry: NodeRegistry):
 
         # Handle task completion deterministically
         if state.get('task_status') == 'completed':
-            done_msg = AIMessage(content="Task completed. Moving to the next task.")
+            done_msg = AIMessage(content=state.get("reason", "The current task has been completed successfully."))
             return _create_command(
                 goto="task_selection_node",
                 state=state,
