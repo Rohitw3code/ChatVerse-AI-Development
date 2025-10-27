@@ -35,9 +35,11 @@ from dotenv import load_dotenv
 from langchain_core.runnables import RunnableConfig
 from chatagent.utils import get_user_id
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import base64
 import os
 import json
+import re
 
 load_dotenv()
 
@@ -310,14 +312,39 @@ def draft_gmail(
     5. No irrelevant or made-up details
     6. Sign off using "By ChatVerse" as the assistant name
 
-    📌 Formatting Rule:
-    If the user does NOT specify a strict email style:
-    - Use emojis where appropriate
-    - Use bullet points, **bold**, *italic*, and spacing to make the email visually appealing and engaging
-    - Maintain a clean and readable design
+    📌 CRITICAL Formatting Rules:
+    
+    DEFAULT (Plain Text):
+    - DO NOT use markdown formatting like **bold**, *italic*, or __underline__
+    - DO NOT use emojis unless explicitly requested by the user
+    - Use plain text formatting only
+    - Use proper line breaks and spacing for readability
+    - Use simple bullet points with dashes (-) or numbers if needed
+    - Gmail displays markdown as raw text, so avoid all markdown syntax
+    - Set is_html to False
+    
+    WHEN USER REQUESTS HTML/STYLED EMAIL:
+    If the user specifically requests "HTML", "styled", "formatted", "designed", or "beautiful" email:
+    - Generate proper HTML-formatted content
+    - Use HTML tags like <b>, <i>, <u>, <p>, <br>, <ul>, <li>, <h1>, etc.
+    - Use inline CSS styles for colors, fonts, and spacing (e.g., style="color: blue;")
+    - Include proper HTML structure
+    - Set is_html to True
+    - Example HTML structure:
+      <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+          <h2 style="color: #333;">Subject</h2>
+          <p>Content here...</p>
+          <ul>
+            <li>Item 1</li>
+            <li>Item 2</li>
+          </ul>
+        </body>
+      </html>
 
-    If the user DOES specify a style:
-    - Follow exactly what the user requests (format, tone, and restrictions)
+    FOLLOW USER'S STYLE:
+    If the user specifies a particular style, format, or tone:
+    - Follow exactly what the user requests
     """
 
     with get_openai_callback() as cb:
@@ -334,7 +361,11 @@ def draft_gmail(
 
     print("tool out:", tool_output)
     print("sub:", tool_output.subject)
-    result = {"subject": tool_output.subject, "body": tool_output.body}
+    result = {
+        "subject": tool_output.subject, 
+        "body": tool_output.body,
+        "is_html": getattr(tool_output, 'is_html', False)
+    }
     log_tool_event(
         tool_name="draft_gmail",
         status="success",
@@ -420,10 +451,31 @@ def send_gmail(recipient: str, subject: str, body: str, config: RunnableConfig =
 
             service = build("gmail", "v1", credentials=creds)
 
-            # Create email message
-            message = MIMEText(modified_email_json['body'])
-            message['to'] = modified_email_json['to']
-            message['subject'] = modified_email_json['subject']
+            # Detect if body contains HTML
+            is_html = bool(re.search(r'<[^>]+>', modified_email_json['body']))
+            
+            # Create email message with HTML support
+            if is_html:
+                # Create multipart message for HTML emails
+                message = MIMEMultipart('alternative')
+                message['to'] = modified_email_json['to']
+                message['subject'] = modified_email_json['subject']
+                
+                # Create plain text version (strip HTML tags for fallback)
+                plain_text = re.sub(r'<[^>]+>', '', modified_email_json['body'])
+                part1 = MIMEText(plain_text, 'plain')
+                
+                # Create HTML version
+                part2 = MIMEText(modified_email_json['body'], 'html')
+                
+                # Attach parts (plain text first, then HTML)
+                message.attach(part1)
+                message.attach(part2)
+            else:
+                # Plain text email
+                message = MIMEText(modified_email_json['body'], 'plain')
+                message['to'] = modified_email_json['to']
+                message['subject'] = modified_email_json['subject']
 
             # Encode the message
             raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
@@ -935,12 +987,32 @@ def reply_to_email(email_id: str, body: str, config: RunnableConfig = None):
         subject = next((h["value"] for h in headers if h["name"] == "Subject"), "")
         to = next((h["value"] for h in headers if h["name"] == "From"), "")
         
-        # Create reply
-        message = MIMEText(body)
-        message['to'] = to
-        message['subject'] = f"Re: {subject}" if not subject.startswith("Re:") else subject
-        message['In-Reply-To'] = email_id
-        message['References'] = email_id
+        # Detect if body contains HTML
+        is_html = bool(re.search(r'<[^>]+>', body))
+        
+        # Create reply with HTML support
+        if is_html:
+            message = MIMEMultipart('alternative')
+            message['to'] = to
+            message['subject'] = f"Re: {subject}" if not subject.startswith("Re:") else subject
+            message['In-Reply-To'] = email_id
+            message['References'] = email_id
+            
+            # Plain text version
+            plain_text = re.sub(r'<[^>]+>', '', body)
+            part1 = MIMEText(plain_text, 'plain')
+            
+            # HTML version
+            part2 = MIMEText(body, 'html')
+            
+            message.attach(part1)
+            message.attach(part2)
+        else:
+            message = MIMEText(body, 'plain')
+            message['to'] = to
+            message['subject'] = f"Re: {subject}" if not subject.startswith("Re:") else subject
+            message['In-Reply-To'] = email_id
+            message['References'] = email_id
         
         raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
         
