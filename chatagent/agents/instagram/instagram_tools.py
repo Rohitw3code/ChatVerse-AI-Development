@@ -472,8 +472,9 @@ async def search_hashtag(
     config: RunnableConfig = None
 ):
     """
-    Search for a hashtag on Instagram and get its information.
-    Use this when user asks about hashtag search or hashtag data.
+    Search for a hashtag on Instagram. 
+    Note: This requires Instagram Business/Creator account with specific permissions.
+    If not available, use analyze_hashtags tool instead to analyze hashtags in your own posts.
     """
     user_id = get_user_id(config)
     
@@ -506,8 +507,71 @@ async def search_hashtag(
     platform_user_id = existing.data[0]["platform_user_id"]
     tool_output = await instagram_profile.getHashtagSearch(platform_user_id, hashtag)
     
+    # Check if it's a permission error and suggest alternative
+    if isinstance(tool_output, dict) and tool_output.get("status") in ["permission_required", "not_available"]:
+        tool_output_str = f"{tool_output.get('error')} Consider using analyze_hashtags tool to see hashtag usage in your own posts instead."
+        log_tool_event(
+            tool_name="search_hashtag",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output_str).to_dict(),
+        )
+        return tool_output_str
+    
     log_tool_event(
         tool_name="search_hashtag",
+        status="success",
+        params={},
+        parent_node="instagram_agent_node",
+        tool_output=ToolOutput(output=str(tool_output)).to_dict(),
+    )
+    return str(tool_output)
+
+
+@tool("analyze_hashtags")
+async def analyze_hashtags(
+    limit: int = Field(25, description="Number of recent posts to analyze for hashtags (default 25)"),
+    config: RunnableConfig = None
+):
+    """
+    Analyze hashtags used in your own Instagram posts.
+    Returns hashtag frequency, top hashtags, and performance data.
+    Use this to understand which hashtags you use most and their engagement.
+    """
+    user_id = get_user_id(config)
+    
+    log_tool_event(
+        tool_name="analyze_hashtags",
+        status="started",
+        params={"limit": limit},
+        parent_node="instagram_agent_node",
+    )
+    
+    existing = (
+        supabase.table("connected_accounts")
+        .select("platform_user_id")
+        .eq("provider_id", user_id)
+        .eq("platform", "instagram")
+        .execute()
+    )
+    
+    if not existing.data:
+        tool_output = "No Instagram account found connected. Ask the user to connect their Instagram account."
+        log_tool_event(
+            tool_name="analyze_hashtags",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+        return tool_output
+    
+    platform_user_id = existing.data[0]["platform_user_id"]
+    tool_output = await instagram_profile.analyzeHashtagsInPosts(platform_user_id, limit)
+    
+    log_tool_event(
+        tool_name="analyze_hashtags",
         status="success",
         params={},
         parent_node="instagram_agent_node",
@@ -530,6 +594,7 @@ def get_instagram_tool_registry() -> NodeRegistry:
     instagram_tool_register.add("get_post_insights", get_post_insights, "tool")
     instagram_tool_register.add("get_post_comments", get_post_comments, "tool")
     instagram_tool_register.add("search_hashtag", search_hashtag, "tool")
+    instagram_tool_register.add("analyze_hashtags", analyze_hashtags, "tool")
     instagram_tool_register.add("publish_post", publish_post, "tool")
     instagram_tool_register.add("ask_human", ask_human, "tool")
     instagram_tool_register.add("instagram_error", instagram_error, "tool")

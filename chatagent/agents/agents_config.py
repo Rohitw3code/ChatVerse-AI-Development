@@ -73,10 +73,10 @@ AGENTS_CONFIG: List[AgentConfig] = [
         "name": "instagram_agent_node",
         "description": (
             "Instagram agent: profile info (username, followers, following, bio), profile insights, engagement stats, "
-            "account analytics, recent posts, top performing posts, post insights, comments, hashtag search, "
+            "account analytics, recent posts, top performing posts, post insights, comments, hashtag analysis, "
             "publish posts with images from URLs. "
             "Keywords: instagram, profile, followers, insights, social media, post, publish, upload, share, "
-            "top posts, best posts, comments, hashtag, analytics, engagement, reach"
+            "top posts, best posts, comments, hashtag, hashtag analysis, analytics, engagement, reach"
         ),
         "prompt": (
             "You are an Instagram Manager Agent.\n"
@@ -85,7 +85,7 @@ AGENTS_CONFIG: List[AgentConfig] = [
             "- Insights: reach, profile views, engagement, interactions (28 days)\n"
             "- Posts: recent posts, top posts by engagement, post insights, comments\n"
             "- Publishing: post images from URLs with smart caption handling\n"
-            "- Hashtag search and analysis\n\n"
+            "- Hashtags: analyze hashtag usage in your posts (frequency, performance)\n\n"
             "Caption Rules: If user provides caption, use it. If not, infer from URL context. "
             "Only add caption if meaningful, otherwise post without caption.\n\n"
             "If authentication error occurs, ask user to connect Instagram. After completing or failing, END the task."

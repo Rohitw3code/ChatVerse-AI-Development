@@ -291,7 +291,8 @@ async def getMediaInsights(platform_user_id: str, media_id: str) -> dict:
 
 async def getHashtagSearch(platform_user_id: str, hashtag: str) -> dict:
     """
-    Search for Instagram hashtag and get its ID for further operations.
+    Search for Instagram hashtag and get its ID.
+    Note: This requires Instagram Business Account and specific permissions.
     """
     try:
         access_token = await get_access_token(platform_user_id)
@@ -302,6 +303,7 @@ async def getHashtagSearch(platform_user_id: str, hashtag: str) -> dict:
         # Remove # if present
         hashtag = hashtag.lstrip('#')
         
+        # Use the correct endpoint format
         url = f"https://graph.instagram.com/v21.0/ig_hashtag_search"
         params = {
             "user_id": platform_user_id,
@@ -311,11 +313,31 @@ async def getHashtagSearch(platform_user_id: str, hashtag: str) -> dict:
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url, params=params)
+            
+            # Check if we have permission issues
+            if response.status_code == 400:
+                return {
+                    "error": "Hashtag search requires Instagram Business Account with proper permissions. "
+                            "Please ensure your account is a Business or Creator account and has the required permissions.",
+                    "hashtag": hashtag,
+                    "status": "permission_required"
+                }
+            
             response.raise_for_status()
             return response.json()
             
     except httpx.HTTPStatusError as e:
         error_details = e.response.json() if e.response.content else str(e)
+        
+        # Check for specific permission errors
+        if isinstance(error_details, dict) and error_details.get('error', {}).get('code') == 100:
+            return {
+                "error": "Hashtag search is not available for this account. This feature requires an Instagram Business or Creator account with additional permissions.",
+                "hashtag": hashtag,
+                "status": "not_available",
+                "details": error_details
+            }
+        
         return f"Failed to search hashtag: {error_details}"
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
@@ -345,5 +367,58 @@ async def getComments(platform_user_id: str, media_id: str) -> dict:
     except httpx.HTTPStatusError as e:
         error_details = e.response.json() if e.response.content else str(e)
         return f"Failed to fetch comments: {error_details}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
+
+
+async def analyzeHashtagsInPosts(platform_user_id: str, limit: int = 25) -> dict:
+    """
+    Analyze hashtags used in user's own posts.
+    Returns hashtag usage statistics and frequency.
+    This is an alternative to hashtag search for accounts without Business permissions.
+    """
+    try:
+        # Get recent media
+        media_data = await getRecentMedia(platform_user_id, limit)
+        
+        if isinstance(media_data, str):  # Error message
+            return media_data
+        
+        posts = media_data.get("data", [])
+        
+        # Extract and count hashtags
+        hashtag_count = {}
+        hashtag_posts = {}
+        
+        for post in posts:
+            caption = post.get("caption", "")
+            if caption:
+                # Find all hashtags in caption
+                words = caption.split()
+                for word in words:
+                    if word.startswith("#") and len(word) > 1:
+                        hashtag = word.lower()
+                        hashtag_count[hashtag] = hashtag_count.get(hashtag, 0) + 1
+                        
+                        if hashtag not in hashtag_posts:
+                            hashtag_posts[hashtag] = []
+                        
+                        hashtag_posts[hashtag].append({
+                            "post_id": post.get("id"),
+                            "likes": post.get("like_count", 0),
+                            "comments": post.get("comments_count", 0)
+                        })
+        
+        # Sort by frequency
+        sorted_hashtags = sorted(hashtag_count.items(), key=lambda x: x[1], reverse=True)
+        
+        return {
+            "total_posts_analyzed": len(posts),
+            "unique_hashtags": len(hashtag_count),
+            "hashtag_frequency": dict(sorted_hashtags),
+            "top_hashtags": sorted_hashtags[:10],
+            "hashtag_details": hashtag_posts
+        }
+        
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
