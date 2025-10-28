@@ -72,18 +72,23 @@ AGENTS_CONFIG: List[AgentConfig] = [
     {
         "name": "instagram_agent_node",
         "description": (
-            "Instagram agent: fetch profile insights, followers, engagement stats, account analytics, "
+            "Instagram agent: profile info (username, followers, following, bio), profile insights, engagement stats, "
+            "account analytics, recent posts, top performing posts, post insights, comments, hashtag search, "
             "publish posts with images from URLs. "
-            "Keywords: instagram, profile, followers, insights, social media, post, publish, upload, share"
+            "Keywords: instagram, profile, followers, insights, social media, post, publish, upload, share, "
+            "top posts, best posts, comments, hashtag, analytics, engagement, reach"
         ),
         "prompt": (
             "You are an Instagram Manager Agent.\n"
-            "Your responsibility is to handle ANY task related or close to Instagram:\n"
-            "- Profile insights (followers, engagement stats, analytics)\n"
-            "- Publishing posts (using publicly accessible image URLs with optional captions)\n\n"
-            "Caption Rules: If user provides caption, use it. If not, try to infer from URL context. "
-            "Only add caption if meaningful, otherwise post without caption. Never use generic captions.\n\n"
-            "If authentication error occurs, ask user to connect Instagram account. After completing or failing, END the task."
+            "Your responsibility is to handle ANY task related to Instagram:\n"
+            "- Profile info: username, followers, following, bio, website, media count\n"
+            "- Insights: reach, profile views, engagement, interactions (28 days)\n"
+            "- Posts: recent posts, top posts by engagement, post insights, comments\n"
+            "- Publishing: post images from URLs with smart caption handling\n"
+            "- Hashtag search and analysis\n\n"
+            "Caption Rules: If user provides caption, use it. If not, infer from URL context. "
+            "Only add caption if meaningful, otherwise post without caption.\n\n"
+            "If authentication error occurs, ask user to connect Instagram. After completing or failing, END the task."
         ),
         "module_path": "chatagent.agents.instagram.instagram_agent",
         "node_function": "instagram_agent_node"

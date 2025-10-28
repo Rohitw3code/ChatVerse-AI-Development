@@ -161,3 +161,189 @@ async def publishInstagramPost(platform_user_id: str, image_url: str, caption: s
             "message": "An unexpected error occurred",
             "error": str(e)
         }
+
+
+async def getProfileInfo(platform_user_id: str) -> dict:
+    """
+    Fetch Instagram profile information.
+    Returns basic profile data like username, followers count, media count, etc.
+    """
+    try:
+        access_token = await get_access_token(platform_user_id)
+        
+        if not platform_user_id or not access_token:
+            raise ValueError("Missing platform_user_id or access_token")
+        
+        url = f"https://graph.instagram.com/v21.0/{platform_user_id}"
+        params = {
+            "fields": "id,username,name,profile_picture_url,followers_count,follows_count,media_count,biography,website",
+            "access_token": access_token
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+            
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json() if e.response.content else str(e)
+        return f"Failed to fetch profile info: {error_details}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
+
+
+async def getRecentMedia(platform_user_id: str, limit: int = 25) -> dict:
+    """
+    Fetch recent media posts from Instagram account.
+    Returns list of recent posts with their details.
+    """
+    try:
+        access_token = await get_access_token(platform_user_id)
+        
+        if not platform_user_id or not access_token:
+            raise ValueError("Missing platform_user_id or access_token")
+        
+        url = f"https://graph.instagram.com/v21.0/{platform_user_id}/media"
+        params = {
+            "fields": "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
+            "limit": limit,
+            "access_token": access_token
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+            
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json() if e.response.content else str(e)
+        return f"Failed to fetch recent media: {error_details}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
+
+
+async def getTopPosts(platform_user_id: str, limit: int = 25) -> dict:
+    """
+    Fetch top performing posts based on engagement (likes + comments).
+    Returns sorted list of posts by engagement.
+    """
+    try:
+        # First get all recent media
+        media_data = await getRecentMedia(platform_user_id, limit)
+        
+        if isinstance(media_data, str):  # Error message
+            return media_data
+        
+        posts = media_data.get("data", [])
+        
+        # Calculate engagement and sort
+        for post in posts:
+            likes = post.get("like_count", 0) or 0
+            comments = post.get("comments_count", 0) or 0
+            post["engagement"] = likes + comments
+        
+        # Sort by engagement
+        sorted_posts = sorted(posts, key=lambda x: x.get("engagement", 0), reverse=True)
+        
+        return {
+            "data": sorted_posts,
+            "count": len(sorted_posts)
+        }
+            
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
+
+
+async def getMediaInsights(platform_user_id: str, media_id: str) -> dict:
+    """
+    Fetch insights for a specific media post.
+    Returns engagement metrics like reach, impressions, saves, etc.
+    """
+    try:
+        access_token = await get_access_token(platform_user_id)
+        
+        if not platform_user_id or not access_token:
+            raise ValueError("Missing platform_user_id or access_token")
+        
+        url = f"https://graph.instagram.com/v21.0/{media_id}/insights"
+        params = {
+            "metric": "impressions,reach,engagement,saved,likes,comments,shares",
+            "access_token": access_token
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            
+            data = response.json().get("data", [])
+            simplified = {
+                item["name"]: item.get("values", [{}])[0].get("value", 0)
+                for item in data
+            }
+            return simplified
+            
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json() if e.response.content else str(e)
+        return f"Failed to fetch media insights: {error_details}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
+
+
+async def getHashtagSearch(platform_user_id: str, hashtag: str) -> dict:
+    """
+    Search for Instagram hashtag and get its ID for further operations.
+    """
+    try:
+        access_token = await get_access_token(platform_user_id)
+        
+        if not platform_user_id or not access_token:
+            raise ValueError("Missing platform_user_id or access_token")
+        
+        # Remove # if present
+        hashtag = hashtag.lstrip('#')
+        
+        url = f"https://graph.instagram.com/v21.0/ig_hashtag_search"
+        params = {
+            "user_id": platform_user_id,
+            "q": hashtag,
+            "access_token": access_token
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+            
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json() if e.response.content else str(e)
+        return f"Failed to search hashtag: {error_details}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
+
+
+async def getComments(platform_user_id: str, media_id: str) -> dict:
+    """
+    Fetch comments for a specific media post.
+    """
+    try:
+        access_token = await get_access_token(platform_user_id)
+        
+        if not platform_user_id or not access_token:
+            raise ValueError("Missing platform_user_id or access_token")
+        
+        url = f"https://graph.instagram.com/v21.0/{media_id}/comments"
+        params = {
+            "fields": "id,text,username,timestamp,like_count",
+            "access_token": access_token
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+            
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json() if e.response.content else str(e)
+        return f"Failed to fetch comments: {error_details}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
