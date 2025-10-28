@@ -148,6 +148,77 @@ def instagram_error(params: str = Field(..., description="error reason")) -> str
     return str(user_input)
 
 
+@tool("publish_post")
+async def publish_post(
+    image_url: str = Field(..., description="URL of the image to post (must be publicly accessible)"),
+    caption: str = Field(None, description="Caption for the post. Try to infer from URL context if not provided. Leave as None if no relevant caption possible."),
+    config: RunnableConfig = None
+) -> str:
+    """
+    Publish a post to Instagram using an image URL.
+    If no caption provided, analyze URL for context. Only add caption if meaningful, otherwise post without caption.
+    If no URL provided, ask user using ask_human tool.
+    """
+    user_id = get_user_id(config)
+    
+    log_tool_event(
+        tool_name="publish_post",
+        status="started",
+        params={"image_url": image_url, "caption": caption},
+        parent_node="instagram_agent_node",
+    )
+    
+    # Get platform_user_id from database
+    existing = (
+        supabase.table("connected_accounts")
+        .select("platform_user_id")
+        .eq("provider_id", user_id)
+        .eq("platform", "instagram")
+        .execute()
+    )
+    
+    if not existing.data:
+        tool_output = "No Instagram account found connected. Ask the user to connect their Instagram account."
+        log_tool_event(
+            tool_name="publish_post",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+        return tool_output
+    
+    platform_user_id = existing.data[0]["platform_user_id"]
+    
+    # Publish the post
+    result = await instagram_profile.publishInstagramPost(
+        platform_user_id=platform_user_id,
+        image_url=image_url,
+        caption=caption
+    )
+    
+    if result.get("success"):
+        tool_output = f"Post published successfully! Post ID: {result.get('post_id')}. {result.get('message')}"
+        log_tool_event(
+            tool_name="publish_post",
+            status="success",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+    else:
+        tool_output = f"Failed to publish post: {result.get('message')}. Error: {result.get('error')}"
+        log_tool_event(
+            tool_name="publish_post",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+    
+    return tool_output
+
+
 def get_instagram_tool_registry() -> NodeRegistry:
     """
     Returns a NodeRegistry containing all Instagram tools.
@@ -156,6 +227,7 @@ def get_instagram_tool_registry() -> NodeRegistry:
     instagram_tool_register = NodeRegistry()
     instagram_tool_register.add("instagram_auth_verification", instagram_auth_verification, "tool")
     instagram_tool_register.add("profile_insight", profile_insight, "tool")
+    instagram_tool_register.add("publish_post", publish_post, "tool")
     instagram_tool_register.add("ask_human", ask_human, "tool")
     instagram_tool_register.add("instagram_error", instagram_error, "tool")
     return instagram_tool_register

@@ -21,3 +21,17 @@ class InstagramAuthVerification(BaseModel):
     is_connected: bool = Field(..., description="Whether Instagram account is connected")
     platform_user_id: Optional[str] = Field(None, description="Platform user ID if connected")
     message: str = Field(..., description="Status message")
+
+
+class InstagramPostPublish(BaseModel):
+    """Schema for Instagram post publishing."""
+    image_url: str = Field(..., description="URL of the image to post")
+    caption: Optional[str] = Field(None, description="Caption for the post")
+    
+    
+class InstagramPostResponse(BaseModel):
+    """Schema for Instagram post publishing response."""
+    success: bool = Field(..., description="Whether the post was published successfully")
+    post_id: Optional[str] = Field(None, description="Instagram post ID if successful")
+    message: str = Field(..., description="Status message")
+    error: Optional[str] = Field(None, description="Error message if failed")

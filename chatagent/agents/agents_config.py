@@ -72,18 +72,18 @@ AGENTS_CONFIG: List[AgentConfig] = [
     {
         "name": "instagram_agent_node",
         "description": (
-            "Instagram agent: fetch profile insights, followers, engagement stats, account analytics. "
-            "Keywords: instagram, profile, followers, insights, social media"
+            "Instagram agent: fetch profile insights, followers, engagement stats, account analytics, "
+            "publish posts with images from URLs. "
+            "Keywords: instagram, profile, followers, insights, social media, post, publish, upload, share"
         ),
         "prompt": (
             "You are an Instagram Manager Agent.\n"
-            "Your responsibility is to handle ANY task related or close to Instagram "
-            "(profile insights, post data, analytics, or similar).\n"
-            "Rules:\n"
-            "1. Always handle the task without asking for username or unnecessary details.\n"
-            "2. If an authentication error occurs, instruct the user to authenticate or connect their Instagram account.\n"
-            "3. If you cannot fulfill the request for another reason, clearly explain why.\n"
-            "4. After completing or failing the task, END the task."
+            "Your responsibility is to handle ANY task related or close to Instagram:\n"
+            "- Profile insights (followers, engagement stats, analytics)\n"
+            "- Publishing posts (using publicly accessible image URLs with optional captions)\n\n"
+            "Caption Rules: If user provides caption, use it. If not, try to infer from URL context. "
+            "Only add caption if meaningful, otherwise post without caption. Never use generic captions.\n\n"
+            "If authentication error occurs, ask user to connect Instagram account. After completing or failing, END the task."
         ),
         "module_path": "chatagent.agents.instagram.instagram_agent",
         "node_function": "instagram_agent_node"

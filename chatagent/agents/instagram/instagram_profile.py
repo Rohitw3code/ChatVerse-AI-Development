@@ -73,3 +73,91 @@ async def getInstagramInsight(platform_user_id: str) -> dict:
         return f"Failed to fetch insights: {error_details}"
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
+
+
+async def publishInstagramPost(platform_user_id: str, image_url: str, caption: str = None) -> dict:
+    """
+    Publish a post to Instagram using an image URL.
+    This uses Instagram Graph API's two-step process:
+    1. Create a media container with the image URL
+    2. Publish the media container
+    
+    Args:
+        platform_user_id: Instagram Business Account ID
+        image_url: URL of the image to post (must be publicly accessible)
+        caption: Optional caption for the post
+        
+    Returns:
+        Dictionary with success status, post_id, and message
+    """
+    try:
+        access_token = await get_access_token(platform_user_id)
+        
+        if not platform_user_id or not access_token:
+            raise ValueError("Missing platform_user_id or access_token")
+        
+        if not image_url:
+            raise ValueError("Missing image_url")
+        
+        # Step 1: Create media container
+        container_url = f"https://graph.instagram.com/v21.0/{platform_user_id}/media"
+        container_params = {
+            "image_url": image_url,
+            "access_token": access_token
+        }
+        
+        if caption:
+            container_params["caption"] = caption
+        
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # Create container
+            container_response = await client.post(container_url, data=container_params)
+            container_response.raise_for_status()
+            container_data = container_response.json()
+            
+            if "id" not in container_data:
+                return {
+                    "success": False,
+                    "message": "Failed to create media container",
+                    "error": str(container_data)
+                }
+            
+            creation_id = container_data["id"]
+            
+            # Step 2: Publish the container
+            publish_url = f"https://graph.instagram.com/v21.0/{platform_user_id}/media_publish"
+            publish_params = {
+                "creation_id": creation_id,
+                "access_token": access_token
+            }
+            
+            publish_response = await client.post(publish_url, data=publish_params)
+            publish_response.raise_for_status()
+            publish_data = publish_response.json()
+            
+            if "id" in publish_data:
+                return {
+                    "success": True,
+                    "post_id": publish_data["id"],
+                    "message": "Post published successfully on Instagram"
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "Failed to publish post",
+                    "error": str(publish_data)
+                }
+                
+    except httpx.HTTPStatusError as e:
+        error_details = e.response.json() if e.response.content else str(e)
+        return {
+            "success": False,
+            "message": f"HTTP error occurred: {e.response.status_code}",
+            "error": str(error_details)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": "An unexpected error occurred",
+            "error": str(e)
+        }
