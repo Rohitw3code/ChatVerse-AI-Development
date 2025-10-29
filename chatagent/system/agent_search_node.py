@@ -86,6 +86,14 @@ def search_agent_node():
 
         # **Condition 1: Agents are sufficient, proceed to planner.**
         if agent_selection.sufficient:
+            trace_entry = {
+                "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+                "node": "search_agent_node",
+                "event": "routing_decision",
+                "decision": {"goto": "planner_node", "reason": "Sufficient agents found"},
+                "agents": [a.get("name") for a in selected_agents],
+            }
+            prev_trace = state.get("automation_trace", [])
             return Command(
                 update={
                     "input": state["input"],
@@ -102,12 +110,21 @@ def search_agent_node():
                     "current_task": state.get("current_task", "NO TASK"),
                     "tool_output": state.get("tool_output"),
                     "max_message": state.get("max_message", 10),
+                    "automation_trace": prev_trace + [trace_entry],
                 },
                 goto="planner_node"
             )
 
         # **Condition 2: Agents are insufficient, but we can still retry.**
         if not agent_selection.sufficient and agent_search_count < 3:
+            trace_entry = {
+                "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+                "node": "search_agent_node",
+                "event": "routing_decision",
+                "decision": {"goto": "search_agent_node", "reason": agent_selection.reason},
+                "agents": [a.get("name") for a in selected_agents],
+            }
+            prev_trace = state.get("automation_trace", [])
             return Command(
                 update={
                     "input": state["input"],
@@ -125,12 +142,21 @@ def search_agent_node():
                     "current_task": state.get("current_task", "NO TASK"),
                     "tool_output": state.get("tool_output"),
                     "max_message": state.get("max_message", 10),
+                    "automation_trace": prev_trace + [trace_entry],
                 },
                 goto="search_agent_node"
             )
         
         # **Condition 3: Agents are insufficient and we are out of retries. End the process.**
         final_reason = f"I am not capable of handling this request. After multiple searches, suitable agents could not be found. Reason: {agent_selection.reason}"
+        trace_entry = {
+            "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+            "node": "search_agent_node",
+            "event": "routing_decision",
+            "decision": {"goto": "final_answer_node", "reason": agent_selection.reason},
+            "agents": [a.get("name") for a in selected_agents],
+        }
+        prev_trace = state.get("automation_trace", [])
         return Command(
             update={
                 "input": state["input"],
@@ -147,6 +173,7 @@ def search_agent_node():
                 "current_task": state.get("current_task", "NO TASK"),
                 "tool_output": state.get("tool_output"),
                 "max_message": state.get("max_message", 10),
+                "automation_trace": prev_trace + [trace_entry],
             },
             goto="final_answer_node"
         )

@@ -75,23 +75,39 @@ class InputRouter:
 
         if decision.next.lower() == "finish":
             ai_message = AIMessage(content=decision.final_answer)
+            trace_entry = {
+                "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+                "node": "inputer",
+                "event": "routing_decision",
+                "decision": {"goto": "__end__", "reason": decision.reason},
+            }
+            prev_trace = state.get("automation_trace", [])
             common_update.update(
                 {
                     "next_node": "__end__",
                     "next_type": "thinker",
                     "messages": [ai_message],
                     "current_message": [ai_message],
+                    "automation_trace": prev_trace + [trace_entry],
                 }
             )
             return Command(update=common_update, goto="__end__")
 
         ai_message = AIMessage(content=decision.reason)
+        trace_entry = {
+            "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+            "node": "inputer",
+            "event": "routing_decision",
+            "decision": {"goto": "search_agent_node", "reason": decision.reason},
+        }
+        prev_trace = state.get("automation_trace", [])
         common_update.update(
             {
                 "next_node": "search_agent_node",
                 "next_type": "agent_searcher",
                 "messages": [ai_message],
                 "current_message": [ai_message],
+                "automation_trace": prev_trace + [trace_entry],
             }
         )
         return Command(update=common_update, goto="search_agent_node")

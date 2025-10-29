@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 
 import json
+from datetime import datetime
 
 class AgentDecision(BaseModel):
     """Model for agent decision making."""
@@ -90,6 +91,7 @@ def make_agent_tool_node(
 
         tool_results: list[ToolMessage] = []
         tools_info = []
+        trace_entries: list[dict] = []
 
         if getattr(ai_msg, "tool_calls", None):
             for tc in ai_msg.tool_calls:
@@ -153,6 +155,17 @@ def make_agent_tool_node(
                     "id": getattr(tool_msg, "id", None),
                 })
 
+                # Append trace entry for this tool invocation (without mutating state yet)
+                params_record = {k: v for k, v in (args or {}).items() if k != "state"}
+                trace_entries.append({
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "node": node_name,
+                    "agent": node_name,
+                    "event": "tool_call",
+                    "tool": name,
+                    "params": params_record,
+                })
+
         # Update usages_data with final accumulated usage
         usages_data = usages(cb)
         
@@ -202,6 +215,20 @@ def make_agent_tool_node(
         usages_data = usages(cb)
         print("\n\n\n[AGENT TOOL NODE] Decision:", decision, "\n\n\n")
 
+        # Record routing decision in trace (append locally only)
+        trace_entries.append({
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "node": node_name,
+            "agent": node_name,
+            "event": "routing_decision",
+            "decision": {
+                "goto": node_name if decision.next_node == "RETRY" else parent_node,
+                "reason": decision.reason,
+            },
+        })
+
+        prev_trace = state.get("automation_trace", [])
+
         if tool_output and decision.next_node == "RETRY":
             return Command(
                 goto=node_name,
@@ -223,6 +250,8 @@ def make_agent_tool_node(
                     "max_message": state.get("max_message", 10),
                     # mark as in progress while tools are being executed
                     "task_status": "in_progress",
+                    # Update automation trace after completing appends
+                    "automation_trace": prev_trace + trace_entries,
                 },
             )
         else:
@@ -246,6 +275,8 @@ def make_agent_tool_node(
                     "max_message": state.get("max_message", 10),
                     # agent did not request any tools -> assume task done
                     "task_status": "completed",
+                    # Update automation trace after completing appends
+                    "automation_trace": prev_trace + trace_entries,
                 },
             )
 

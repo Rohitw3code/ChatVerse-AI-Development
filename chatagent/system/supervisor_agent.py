@@ -51,6 +51,13 @@ def make_supervisor_node(
 
     def _create_command(goto: str, state: State, reason: str, usages_data: dict, next_type: str = "thinker", back_count: int = 0, reset_task_status: bool = False) -> Command:
         """Helper to create consistent Command objects with all required state."""
+        trace_entry = {
+            "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+            "node": node_name,
+            "event": "routing_decision",
+            "decision": {"goto": goto, "reason": reason},
+        }
+        prev_trace = state.get("automation_trace", [])
         return Command(
             goto=goto,
             update={
@@ -71,6 +78,7 @@ def make_supervisor_node(
                 "max_message": state.get("max_message", 10),
                 "back_count": back_count,
                 "task_status": "" if reset_task_status else state.get("task_status", ""),
+                "automation_trace": prev_trace + [trace_entry],
             },
         )
 
@@ -132,6 +140,13 @@ def make_supervisor_node(
                 end_msg = AIMessage(
                     content="Cannot complete this request with available agents. Ending to avoid infinite loop."
                 )
+                trace_entry = {
+                    "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+                    "node": node_name,
+                    "event": "routing_decision",
+                    "decision": {"goto": "final_answer_node", "reason": end_msg.content},
+                }
+                prev_trace = state.get("automation_trace", [])
                 return Command(
                     goto="final_answer_node",
                     update={
@@ -151,6 +166,7 @@ def make_supervisor_node(
                         "tool_output": state.get("tool_output"),
                         "max_message": state.get("max_message", 10),
                         "back_count": new_back_count,
+                        "automation_trace": prev_trace + [trace_entry],
                     },
                 )
 

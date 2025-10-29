@@ -89,6 +89,10 @@ class State(TypedDict, total=False):
     # Task tracking
     task_status: str
 
+    # Execution trace for automation flows (append-only, order-preserving)
+    # Each entry is a dict capturing node, routing decisions, agent/tool info and params
+    automation_trace: list
+
 
 import json
 from datetime import datetime
@@ -538,5 +542,58 @@ def print_stream_debug(stream_data: dict):
         if isinstance(v, (dict, list)):
             v = json.dumps(v, indent=2, ensure_ascii=False)
         table.add_row(k, str(v))
+
+    console.print(table)
+
+
+def print_automation_trace_entries(entries: list):
+    """Pretty-print one or more automation trace entries to console.
+
+    Each entry may include:
+    - timestamp, node, event
+    - agent (optional), tool (optional)
+    - decision: {goto, reason} (optional)
+    - params (optional), agents (optional)
+    """
+    if not entries:
+        return
+
+    table = Table(title="🧭 Automation Trace", show_lines=True)
+    table.add_column("#", style="bold")
+    table.add_column("time", style="cyan")
+    table.add_column("node", style="magenta")
+    table.add_column("event", style="yellow")
+    table.add_column("details", style="green")
+
+    for idx, e in enumerate(entries, 1):
+        ts = e.get("timestamp", "")
+        node = e.get("node", "")
+        event = e.get("event", "")
+
+        details_parts = []
+        if e.get("agent"):
+            details_parts.append(f"agent={e['agent']}")
+        if e.get("tool"):
+            details_parts.append(f"tool={e['tool']}")
+        if e.get("decision"):
+            dec = e["decision"] or {}
+            goto = dec.get("goto")
+            reason = dec.get("reason")
+            details_parts.append(f"goto={goto}")
+            if reason:
+                # keep reason concise
+                r = str(reason)
+                details_parts.append(f"reason={(r[:120] + '…') if len(r) > 120 else r}")
+        if e.get("agents"):
+            details_parts.append(f"agents={e['agents']}")
+        if e.get("params"):
+            try:
+                p = json.dumps(e["params"], ensure_ascii=False)
+            except Exception:
+                p = str(e["params"]) 
+            details_parts.append(f"params={(p[:120] + '…') if len(p) > 120 else p}")
+
+        details = " | ".join(details_parts)
+        table.add_row(str(idx), ts, node, event, details)
 
     console.print(table)

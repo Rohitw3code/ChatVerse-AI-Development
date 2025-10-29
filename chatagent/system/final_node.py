@@ -38,6 +38,13 @@ class FinalAnswerAgent:
         else:
             reason_text = str(final_answer)
 
+        trace_entry = {
+            "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+            "node": "final_answer_node",
+            "event": "routing_decision",
+            "decision": {"goto": "__end__", "reason": reason_text},
+        }
+        prev_trace = state.get("automation_trace", [])
         return Command(
             update={
                 "input": state["input"],
@@ -54,6 +61,7 @@ class FinalAnswerAgent:
                 "current_task": state.get("current_task", "NO TASK"),
                 "tool_output": state.get("tool_output"),
                 "max_message": state.get("max_message", 10),
+                "automation_trace": prev_trace + [trace_entry],
             },
             goto="__end__",
         )

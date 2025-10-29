@@ -111,6 +111,17 @@ class StreamChunk(BaseModel):
 
         usage = node_data.get("usages", {})
 
+        # Merge automation_trace into data for frontend consumption
+        merged_data = {}
+        try:
+            base_data = node_data.get('data', {}) or {}
+            if isinstance(base_data, dict):
+                merged_data.update(base_data)
+        except Exception:
+            pass
+        if 'automation_trace' in node_data:
+            merged_data['automation_trace'] = node_data.get('automation_trace')
+
         return cls(
             stream_type=stream_type,
             provider_id=provider_id,
@@ -129,5 +140,5 @@ class StreamChunk(BaseModel):
             status=status,
             total_token=usage.get("total_tokens", 0) if isinstance(usage, dict) else 0,
             total_cost=usage.get("total_cost", 0.0) if isinstance(usage, dict) else 0.0,
-            data=node_data.get('data', {}),
+            data=merged_data,
         )

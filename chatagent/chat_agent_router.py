@@ -9,7 +9,7 @@ import asyncio
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
-from chatagent.utils import print_stream_debug
+from chatagent.utils import print_stream_debug, print_automation_trace_entries
 from chatagent.db.database import Database
 from chatagent.db.serialization import Serialization
 from chatagent.model.chat_agent_model import StreamChunk
@@ -236,6 +236,7 @@ async def send_message_stream(
         session_total_tokens = 0
         session_llm_calls = 0
         
+        last_trace_len = 0
         async for chunk in graph.astream(state, thread_cfg, stream_mode=["messages", "updates", "custom"]):
             if await request.is_disconnected():
                 break
@@ -295,6 +296,19 @@ async def send_message_stream(
 
             try:
                 print_stream_debug(stream_data)
+            except BaseException:
+                pass
+
+            # Also show any new automation_trace entries in the console
+            try:
+                node_name = next(iter(stream_data.keys()))
+                node_data = stream_data.get(node_name) or {}
+                trace = node_data.get("automation_trace")
+                if isinstance(trace, list) and trace:
+                    new_entries = trace[last_trace_len:]
+                    if new_entries:
+                        print_automation_trace_entries(new_entries)
+                        last_trace_len = len(trace)
             except BaseException:
                 pass
 

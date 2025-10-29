@@ -61,6 +61,13 @@ def make_planner_node(node_name: str = "planner_node"):
             [f"Step {i+1}: {step}" for i, step in enumerate(result.steps)]
         )
 
+        trace_entry = {
+            "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+            "node": node_name,
+            "event": "routing_decision",
+            "decision": {"goto": "task_selection_node", "reason": "Plan generated"},
+        }
+        prev_trace = state.get("automation_trace", [])
         return Command(
             goto="task_selection_node",
             update={
@@ -78,6 +85,7 @@ def make_planner_node(node_name: str = "planner_node"):
                 "current_task": state.get("current_task", "NO TASK"),
                 "tool_output": state.get("tool_output"),
                 "max_message": state.get("max_message", 10),
+                "automation_trace": prev_trace + [trace_entry],
             },
         )
 

@@ -26,6 +26,13 @@ def task_selection_node(node_name: str = "task_selection_node"):
 
         ai_msg = AIMessage(content=f"Current Task: {current_task}")
 
+        trace_entry = {
+            "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+            "node": node_name,
+            "event": "routing_decision",
+            "decision": {"goto": "task_dispatcher_node", "reason": current_task},
+        }
+        prev_trace = state.get("automation_trace", [])
         return Command(
             goto="task_dispatcher_node",
             update={
@@ -44,6 +51,7 @@ def task_selection_node(node_name: str = "task_selection_node"):
                 "current_task": current_task,
                 "tool_output": state.get("tool_output"),
                 "max_message": state.get("max_message", 10),
+                "automation_trace": prev_trace + [trace_entry],
             },
         )
 

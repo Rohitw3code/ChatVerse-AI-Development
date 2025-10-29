@@ -66,6 +66,15 @@ def task_dispatcher(registry: NodeRegistry):
         elif isinstance(current_message, str):
             current_message = [AIMessage(content=current_message)]
         
+        # Build automation trace entry (do not mutate state until return)
+        trace_entry = {
+            "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+            "node": node_name,
+            "event": "routing_decision",
+            "decision": {"goto": goto, "reason": reason},
+        }
+        prev_trace = state.get("automation_trace", [])
+
         return Command(
             goto=goto,
             update={
@@ -86,6 +95,7 @@ def task_dispatcher(registry: NodeRegistry):
                 "max_message": state.get("max_message", 10),
                 "dispatch_retries": dispatch_retries,
                 "task_status": "" if reset_task_status else state.get("task_status", ""),
+                "automation_trace": prev_trace + [trace_entry],
             },
         )
 
@@ -122,6 +132,13 @@ def task_dispatcher(registry: NodeRegistry):
                         "There might be an issue with the request or required permissions. "
                         "Please try rephrasing your request or provide more details."
             )
+            trace_entry = {
+                "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+                "node": node_name,
+                "event": "routing_decision",
+                "decision": {"goto": "final_answer_node", "reason": fail_msg.content},
+            }
+            prev_trace = state.get("automation_trace", [])
             return Command(
                 goto="final_answer_node",
                 update={
@@ -141,6 +158,7 @@ def task_dispatcher(registry: NodeRegistry):
                     "tool_output": state.get("tool_output"),
                     "max_message": state.get("max_message", 10),
                     "dispatch_retries": 0,
+                    "automation_trace": prev_trace + [trace_entry],
                 },
             )
 
