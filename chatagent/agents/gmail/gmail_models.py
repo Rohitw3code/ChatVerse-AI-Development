@@ -31,7 +31,8 @@ class GmailUnreadCount(BaseModel):
 class GmailDraft(BaseModel):
     """Schema for Gmail draft with subject and body."""
     subject: str = Field(..., description="The subject line of the Gmail")
-    body: str = Field(..., description="The professional Gmail body text")
+    body: str = Field(..., description="The professional Gmail body text (plain text or HTML)")
+    is_html: bool = Field(default=False, description="Whether the body contains HTML formatting")
 
 
 class SearchGmailInput(BaseModel):

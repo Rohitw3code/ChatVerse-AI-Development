@@ -40,23 +40,9 @@ async def tavily_search(
     time_range: str | None = None,
 ):
     """
-    Perform a web search using the Tavily API.
-
-    This tool retrieves fresh information (news, job listings, documents, etc.)
-    directly from the web. It is part of the Research Agent and should be used
-    whenever the user asks for real-time or up-to-date knowledge.
-    
-    Args:
-        query (str): The user's search query.
-        limit (int, optional): Maximum number of results to return.
-            - Default = 5
-            - Maximum = 10
-        search_depth (str, optional): Controls the breadth of results.
-            - Options: "basic", "advanced"
-            - Default = None (API default applies)
-        time_range (str, optional): Restrict results to a recent time period.
-            - Options: "day", "week", "month", "year"
-            - Default = None (no time restriction)
+    Search the web for real-time information including news, articles, documentation, and general knowledge.
+    Capabilities: web search, news retrieval, current events, fact-checking, real-time data, trending topics, research queries.
+    Use for: any general web search, up-to-date information, breaking news, or when other specialized tools don't fit.
     """
     log_tool_event(
         tool_name="tavily_search",
@@ -90,20 +76,9 @@ async def linkedin_person_search(
     search_word: str, page_number: int = 1, page_size: int = 2
 ):
     """
-    Search for LinkedIn profiles using the RapidAPI LinkedIn Data Max API.
-
-    This tool queries for LinkedIn profiles based on a search term, with
-    pagination controls. It is useful for finding specific individuals or
-    professionals in a certain field.
-
-    Args:
-        search_word (str): The search term to use (e.g., "plastics ceo").
-        page_number (int, optional): The page number of results to return. Defaults to 1.
-        page_size (int, optional): The number of results per page. Defaults to 2.
-
-    Returns:
-        str: Raw JSON response string from the RapidAPI, typically containing
-        a list of LinkedIn profiles matching the search criteria.
+    Find LinkedIn profiles and professional contacts by name, role, company, or industry.
+    Capabilities: people search, profile discovery, contact finding, professional networking, executive search, talent sourcing.
+    Use for: finding specific professionals, CEOs, employees at companies, industry experts, or networking contacts.
     """
     log_tool_event(
         tool_name="linkedin_person_search",
@@ -179,21 +154,9 @@ async def linkedin_job_search(
     title: str, location: str, limit: int = 5, offset: int = 0
 ):
     """
-    Search LinkedIn job listings using the RapidAPI LinkedIn Job Search API.
-
-    This tool queries LinkedIn jobs filtered by job title and location, with
-    optional pagination controls. It is part of the Research Agent and should
-    be used when the user explicitly requests job search information.
-
-    Args:
-        title (str): Job title to search for (e.g., "Data Scientist", "Backend Engineer").
-        location (str): Location filter (e.g., "United States", "India", "Remote",
-                        or compound queries like "United States OR United Kingdom").
-        limit (int, optional): Maximum number of results to return.
-            - Default = 5
-            - Maximum = 10 (per API limits)
-        offset (int, optional): Pagination offset for retrieving additional results.
-            - Default = 0
+    Search for job openings on LinkedIn by title and location with active listings from last 7 days.
+    Capabilities: job search, job listings, career opportunities, employment search, hiring positions, salary info.
+    Use for: finding jobs, career research, job market analysis, hiring trends, or employment opportunities.
     """
     log_tool_event(
         tool_name="linkedin_job_search",

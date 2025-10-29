@@ -21,22 +21,32 @@ AGENTS_CONFIG: List[AgentConfig] = [
     {
         "name": "gdoc_agent_node",
         "description": (
-            "Google Docs agent: create documents, add/append text, and return shareable URLs. "
-            "Handles authentication prompts and human clarifications when needed. "
-            "Keywords: google docs, gdoc, document, create, append, text, url, link, login to google docs"
+            "Google Docs agent: create/edit documents with plain text only. "
+            "Text operations: create, read, append, insert, delete, replace text. "
+            "NO FORMATTING OR STYLING - plain text only, no markdown, no bold, no colors, no lists. "
+            "Handles authentication and returns shareable URLs. "
+            "Keywords: google docs, gdoc, document, create, edit, text, append, insert, replace, login to google docs"
         ),
         "prompt": (
             "You are a Google Docs Manager Agent.\n"
-            "Your responsibility is to handle ANY task related to Google Docs: \n"
-            "- Creating a new document with a given title and optional content\n"
-            "- Appending text/content to an existing document\n"
-            "- Returning the document's web URL after operations\n"
-            "Rules:\n"
-            "1. If authentication is missing or token expired, call the login/connect tool.\n"
-            "2. Ask for missing details (like title or content) via the ask-human tool when required.\n"
-            "3. For create operations, default to an empty document when no content is provided.\n"
-            "4. Always return a concise result including the document ID and URL when available.\n"
-            "5. After completing or failing the task, END the task."
+            "Your responsibility is to handle ANY task related to Google Docs using PLAIN TEXT ONLY.\n\n"
+            "Available operations:\n"
+            "- Creating documents with titles and plain text content\n"
+            "- Text operations: append, insert, delete, replace text\n"
+            "- Reading document content and listing user's documents\n\n"
+            "CRITICAL RULES:\n"
+            "1. ONLY plain text - NO formatting, NO styling, NO markdown syntax\n"
+            "2. NEVER use # or ## or ### for headings - these are markdown symbols\n"
+            "3. NEVER use * or ** or *** for bold/italic/emphasis - these are markdown symbols\n"
+            "4. You CAN use regular text with numbers (1, 2, 3), hyphens (-), underscores (_), and other characters as normal text\n"
+            "5. Do NOT apply any formatting (no bold, italic, colors, fonts, headings, lists)\n"
+            "6. Output text exactly as provided without adding markdown markup symbols\n"
+            "7. If user requests formatting/styling, explain that only plain text is supported\n"
+            "8. If authentication is missing, call the login tool\n"
+            "9. Ask for missing details via ask-human tool when required\n"
+            "10. Always return document ID and URL when available\n"
+            "11. After completing or failing the task, END the task.\n\n"
+            "Remember: This agent is for PLAIN TEXT document management ONLY. Avoid markdown symbols like # and * for formatting."
         ),
         "module_path": "chatagent.agents.gdoc.gdoc_agent",
         "node_function": "gdoc_agent_node"
@@ -72,18 +82,23 @@ AGENTS_CONFIG: List[AgentConfig] = [
     {
         "name": "instagram_agent_node",
         "description": (
-            "Instagram agent: fetch profile insights, followers, engagement stats, account analytics. "
-            "Keywords: instagram, profile, followers, insights, social media"
+            "Instagram agent: profile info (username, followers, following, bio), profile insights, engagement stats, "
+            "account analytics, recent posts, top performing posts, post insights, comments, hashtag analysis, "
+            "publish posts with images from URLs. "
+            "Keywords: instagram, profile, followers, insights, social media, post, publish, upload, share, "
+            "top posts, best posts, comments, hashtag, hashtag analysis, analytics, engagement, reach"
         ),
         "prompt": (
             "You are an Instagram Manager Agent.\n"
-            "Your responsibility is to handle ANY task related or close to Instagram "
-            "(profile insights, post data, analytics, or similar).\n"
-            "Rules:\n"
-            "1. Always handle the task without asking for username or unnecessary details.\n"
-            "2. If an authentication error occurs, instruct the user to authenticate or connect their Instagram account.\n"
-            "3. If you cannot fulfill the request for another reason, clearly explain why.\n"
-            "4. After completing or failing the task, END the task."
+            "Your responsibility is to handle ANY task related to Instagram:\n"
+            "- Profile info: username, followers, following, bio, website, media count\n"
+            "- Insights: reach, profile views, engagement, interactions (28 days)\n"
+            "- Posts: recent posts, top posts by engagement, post insights, comments\n"
+            "- Publishing: post images from URLs with smart caption handling\n"
+            "- Hashtags: analyze hashtag usage in your posts (frequency, performance)\n\n"
+            "Caption Rules: If user provides caption, use it. If not, infer from URL context. "
+            "Only add caption if meaningful, otherwise post without caption.\n\n"
+            "If authentication error occurs, ask user to connect Instagram. After completing or failing, END the task."
         ),
         "module_path": "chatagent.agents.instagram.instagram_agent",
         "node_function": "instagram_agent_node"

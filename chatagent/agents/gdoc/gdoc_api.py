@@ -140,3 +140,133 @@ async def append_text(user_id: str, document_id: str, text: str) -> dict:
         }
     except Exception as e:
         return {"error": f"Failed to append text: {str(e)}"}
+
+
+async def insert_text(user_id: str, document_id: str, text: str, index: int) -> dict:
+    try:
+        docs = await get_docs_service(user_id)
+        docs.documents().batchUpdate(
+            documentId=document_id,
+            body={
+                "requests": [
+                    {
+                        "insertText": {
+                            "location": {"index": index},
+                            "text": text,
+                        }
+                    }
+                ]
+            },
+        ).execute()
+        
+        drive = await get_drive_service(user_id)
+        details = drive.files().get(fileId=document_id, fields="id, webViewLink").execute()
+        return {
+            "document_id": document_id,
+            "url": details.get("webViewLink"),
+            "inserted": True,
+        }
+    except Exception as e:
+        return {"error": f"Failed to insert text: {str(e)}"}
+
+
+async def read_document(user_id: str, document_id: str) -> dict:
+    try:
+        docs = await get_docs_service(user_id)
+        doc = docs.documents().get(documentId=document_id).execute()
+        
+        title = doc.get("title", "Untitled")
+        content = doc.get("body", {}).get("content", [])
+        
+        # Extract text content
+        text_content = ""
+        for element in content:
+            if "paragraph" in element:
+                paragraph = element.get("paragraph", {})
+                for text_run in paragraph.get("elements", []):
+                    if "textRun" in text_run:
+                        text_content += text_run.get("textRun", {}).get("content", "")
+        
+        return {
+            "document_id": document_id,
+            "title": title,
+            "content": text_content,
+        }
+    except Exception as e:
+        return {"error": f"Failed to read document: {str(e)}"}
+
+
+async def list_documents(user_id: str, max_results: int = 10) -> dict:
+    try:
+        drive = await get_drive_service(user_id)
+        results = drive.files().list(
+            q="mimeType='application/vnd.google-apps.document'",
+            pageSize=max_results,
+            fields="files(id, name, createdTime, modifiedTime, webViewLink)"
+        ).execute()
+        
+        files = results.get("files", [])
+        return {
+            "documents": files,
+            "count": len(files),
+        }
+    except Exception as e:
+        return {"error": f"Failed to list documents: {str(e)}"}
+
+
+async def delete_text(user_id: str, document_id: str, start_index: int, end_index: int) -> dict:
+    try:
+        docs = await get_docs_service(user_id)
+        docs.documents().batchUpdate(
+            documentId=document_id,
+            body={
+                "requests": [
+                    {
+                        "deleteContentRange": {
+                            "range": {"startIndex": start_index, "endIndex": end_index}
+                        }
+                    }
+                ]
+            },
+        ).execute()
+        
+        drive = await get_drive_service(user_id)
+        details = drive.files().get(fileId=document_id, fields="id, webViewLink").execute()
+        return {
+            "document_id": document_id,
+            "url": details.get("webViewLink"),
+            "deleted": True,
+        }
+    except Exception as e:
+        return {"error": f"Failed to delete text: {str(e)}"}
+
+
+async def replace_text(user_id: str, document_id: str, find_text: str, replace_text: str, match_case: bool = False) -> dict:
+    try:
+        docs = await get_docs_service(user_id)
+        docs.documents().batchUpdate(
+            documentId=document_id,
+            body={
+                "requests": [
+                    {
+                        "replaceAllText": {
+                            "containsText": {
+                                "text": find_text,
+                                "matchCase": match_case,
+                            },
+                            "replaceText": replace_text,
+                        }
+                    }
+                ]
+            },
+        ).execute()
+        
+        drive = await get_drive_service(user_id)
+        details = drive.files().get(fileId=document_id, fields="id, webViewLink").execute()
+        return {
+            "document_id": document_id,
+            "url": details.get("webViewLink"),
+            "replaced": True,
+        }
+    except Exception as e:
+        return {"error": f"Failed to replace text: {str(e)}"}

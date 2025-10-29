@@ -104,7 +104,7 @@ async def get_chat_history(
         limit: int = 20):
     offset = (page - 1) * limit
     history = await db.get_chat_history(provider_id, thread_id, limit, offset)
-    print("History : ",history," provider_id : ", provider_id)
+    # print("History : ",history," provider_id : ", provider_id)
     history_dicts = [dict(row) for row in history]
     encoded_history = jsonable_encoder(history_dicts)
     return JSONResponse(content=encoded_history)

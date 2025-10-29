@@ -56,8 +56,8 @@ with open(sheet_json_path, 'r') as f:
 @tool("verify_sheets_connection")
 def verify_sheets_connection(config: RunnableConfig):
     """
-    Verifies if the user's Google Sheets account is connected.
-    Returns a success message if connected, otherwise indicates that authentication is required.
+    Verifies if user's Google Sheets account is connected. Use before performing any sheets operations or when user asks about connection status.
+    Returns success if connected, prompts authentication if not.
     """
     user_id = get_user_id(config)
 
@@ -72,7 +72,7 @@ def verify_sheets_connection(config: RunnableConfig):
         supabase.table("connected_accounts")
         .select("platform_user_id")
         .eq("provider_id", user_id)
-        .eq("platform", "sheets")
+        .eq("platform", "google_sheets")
         .execute()
     )
     
@@ -101,7 +101,8 @@ def verify_sheets_connection(config: RunnableConfig):
 @tool("create_spreadsheet", args_schema=CreateSpreadsheetInput)
 def create_spreadsheet(title: str, sheet_names: Optional[List[str]] = None, config: RunnableConfig = None):
     """
-    Creates a new Google Sheets spreadsheet with the specified title and optional sheet names.
+    Creates a new Google Sheets spreadsheet with specified title and optional sheet tabs. Use when user wants to create/make/start a new spreadsheet.
+    Examples: "create a spreadsheet called Sales", "make a sheet with tabs Q1, Q2, Q3, Q4". Returns spreadsheet ID and URL.
     """
     user_id = get_user_id(config)
     
@@ -200,7 +201,8 @@ def create_spreadsheet(title: str, sheet_names: Optional[List[str]] = None, conf
 @tool("read_sheet_data", args_schema=ReadRangeInput)
 def read_sheet_data(spreadsheet_id: str, range_name: str, config: RunnableConfig = None):
     """
-    Reads data from a specific range in a Google Sheets spreadsheet.
+    Reads data from specific range in Google Sheets. Use when user wants to see/read/view/retrieve spreadsheet data.
+    Range format: "Sheet1!A1:C10" (specific range), "A:A" (entire column), "1:5" (rows). Returns formatted data or empty message if no data found.
     """
     user_id = get_user_id(config)
     
@@ -277,7 +279,8 @@ def read_sheet_data(spreadsheet_id: str, range_name: str, config: RunnableConfig
 @tool("write_sheet_data", args_schema=WriteDataInput)
 def write_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], value_input_option: str = "RAW", config: RunnableConfig = None):
     """
-    Writes data to a specific range in a Google Sheets spreadsheet.
+    Writes/overwrites data to specific cells in Google Sheets. Use when user wants to write/update/replace/change data at specific positions (e.g., "update A1", "write to B2:D5").
+    ⚠️ OVERWRITES existing data. For adding new rows at the end, use append_sheet_data instead. values format: [["row1col1", "row1col2"], ["row2col1", "row2col2"]].
     """
     print(f"\n###############{values}")
     user_id = get_user_id(config)
@@ -329,14 +332,25 @@ def write_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], v
         ).execute()
 
         updated_cells = result.get('updatedCells', 0)
-        tool_output = f"✅ Successfully updated {updated_cells} cells in range {range_name}"
+        updated_range = result.get('updatedRange', range_name)
+        
+        # Create JSON output with written data
+        tool_output = {
+            "status": "success",
+            "message": f"Successfully updated {updated_cells} cells",
+            "spreadsheet_id": spreadsheet_id,
+            "range": updated_range,
+            "data_written": values,
+            "total_cells": updated_cells,
+            "value_input_option": value_input_option
+        }
 
         log_tool_event(
             tool_name="write_sheet_data",
             status="success",
             params={"spreadsheet_id": spreadsheet_id, "range_name": range_name},
             parent_node="sheets_agent_node",
-            tool_output=ToolOutput(output=tool_output, show=True),
+            tool_output=ToolOutput(output=tool_output, show=True, type="spreadsheet_write"),
         )
         return tool_output
 
@@ -355,7 +369,8 @@ def write_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], v
 @tool("append_sheet_data", args_schema=AppendDataInput)
 def append_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], value_input_option: str = "RAW", config: RunnableConfig = None):
     """
-    Appends data to a Google Sheets spreadsheet.
+    Appends new rows to the end of table in Google Sheets without overwriting. Use when user wants to add/insert/append new entries (e.g., "add a row", "log new data", "insert at bottom").
+    Range format: "Sheet1!A:C" (columns A-C). Finds last row and adds after it. values format: [["row1col1", "row1col2"], ["row2col1", "row2col2"]].
     """
     user_id = get_user_id(config)
     
@@ -370,7 +385,7 @@ def append_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], 
         supabase.table("connected_accounts")
         .select("*")
         .eq("provider_id", user_id)
-        .eq("platform", "sheets")
+        .eq("platform", "google_sheets")
         .execute()
     )
 
@@ -406,15 +421,27 @@ def append_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], 
             body=body
         ).execute()
 
-        updated_cells = result.get('updates', {}).get('updatedCells', 0)
-        tool_output = f"✅ Successfully appended {updated_cells} cells to {range_name}"
+        updates = result.get('updates', {})
+        updated_cells = updates.get('updatedCells', 0)
+        updated_range = updates.get('updatedRange', range_name)
+        
+        # Create JSON output with appended data
+        tool_output = {
+            "status": "success",
+            "message": f"Successfully appended {updated_cells} cells",
+            "spreadsheet_id": spreadsheet_id,
+            "range": updated_range,
+            "data_written": values,
+            "total_cells": updated_cells,
+            "value_input_option": value_input_option
+        }
 
         log_tool_event(
             tool_name="append_sheet_data",
             status="success",
             params={"spreadsheet_id": spreadsheet_id, "range_name": range_name},
             parent_node="sheets_agent_node",
-            tool_output=ToolOutput(output=tool_output, show=True),
+            tool_output=ToolOutput(output=tool_output, show=True, type="spreadsheet_write"),
         )
         return tool_output
 
@@ -433,7 +460,8 @@ def append_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], 
 @tool("clear_sheet_data", args_schema=ClearRangeInput)
 def clear_sheet_data(spreadsheet_id: str, range_name: str, config: RunnableConfig = None):
     """
-    Clears data from a specific range in a Google Sheets spreadsheet.
+    Clears/deletes all data from specific range in Google Sheets. Use when user wants to clear/delete/remove/empty cells (e.g., "clear column A", "delete A1:C10").
+    ⚠️ Permanently removes data. Range format: "Sheet1!A1:C10", "A:A" (entire column), "1:5" (rows). Consider asking confirmation for large ranges.
     """
     user_id = get_user_id(config)
     
@@ -448,7 +476,7 @@ def clear_sheet_data(spreadsheet_id: str, range_name: str, config: RunnableConfi
         supabase.table("connected_accounts")
         .select("*")
         .eq("provider_id", user_id)
-        .eq("platform", "sheets")
+        .eq("platform", "google_sheets")
         .execute()
     )
 
@@ -503,7 +531,8 @@ def clear_sheet_data(spreadsheet_id: str, range_name: str, config: RunnableConfi
 @tool("list_spreadsheets")
 def list_spreadsheets(config: RunnableConfig = None):
     """
-    Lists all spreadsheets accessible to the user's Google account.
+    Lists all Google Sheets spreadsheets in user's Drive with IDs, names, and timestamps. Use when user wants to see/find their sheets or needs a spreadsheet ID.
+    Returns list with spreadsheet details (ID, name, creation/modification dates) or empty message if none found.
     """
     user_id = get_user_id(config)
     
@@ -585,7 +614,8 @@ def draft_spreadsheet(
     params: str = Field(..., description="The request or instructions for the spreadsheet structure")
 ) -> dict:
     """
-    Drafts a spreadsheet structure based on user requirements using AI.
+    Uses AI to design professional spreadsheet structure based on user requirements. Use when user needs help planning/designing a spreadsheet or is unsure about structure.
+    Returns suggested title, sheet names, and data organization. Examples: "design a budget tracker", "plan employee database structure".
     """
     log_tool_event(
         tool_name="draft_spreadsheet",
@@ -640,7 +670,8 @@ def ask_human(
     params: str = Field(..., description="What clarification is needed from the user")
 ) -> str:
     """
-    Asks the user for clarification or missing information for Google Sheets operations.
+    Requests clarification from user when information is missing or unclear. Use when missing critical info (spreadsheet ID, range, data values) or confirming destructive operations.
+    Interrupts flow to wait for user response. Examples: "Which spreadsheet?", "What values should I write to A1:C1?", "Confirm clearing entire sheet?".
     """
     interrupt_request = InterruptRequest.create_input_field(
         name="ask_human",
@@ -654,7 +685,8 @@ def ask_human(
 @tool("login_to_sheets")
 def login_to_sheets(params: str = Field(..., description="error reason")) -> str:
     """
-    Handles Google Sheets authentication issues and prompts user to connect.
+    Handles Google Sheets authentication errors and prompts user to connect their Google account via OAuth. Use when account not connected or token expired.
+    Initiates OAuth flow for necessary permissions. Returns authentication confirmation or cancellation status.
     """
     print("Google Sheets connection issue")
     

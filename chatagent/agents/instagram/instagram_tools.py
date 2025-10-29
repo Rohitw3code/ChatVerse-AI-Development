@@ -148,6 +148,438 @@ def instagram_error(params: str = Field(..., description="error reason")) -> str
     return str(user_input)
 
 
+@tool("publish_post")
+async def publish_post(
+    image_url: str = Field(..., description="URL of the image to post (must be publicly accessible)"),
+    caption: str = Field(None, description="Caption for the post. Try to infer from URL context if not provided. Leave as None if no relevant caption possible."),
+    config: RunnableConfig = None
+) -> str:
+    """
+    Publish a post to Instagram using an image URL.
+    If no caption provided, analyze URL for context. Only add caption if meaningful, otherwise post without caption.
+    If no URL provided, ask user using ask_human tool.
+    """
+    user_id = get_user_id(config)
+    
+    log_tool_event(
+        tool_name="publish_post",
+        status="started",
+        params={"image_url": image_url, "caption": caption},
+        parent_node="instagram_agent_node",
+    )
+    
+    # Get platform_user_id from database
+    existing = (
+        supabase.table("connected_accounts")
+        .select("platform_user_id")
+        .eq("provider_id", user_id)
+        .eq("platform", "instagram")
+        .execute()
+    )
+    
+    if not existing.data:
+        tool_output = "No Instagram account found connected. Ask the user to connect their Instagram account."
+        log_tool_event(
+            tool_name="publish_post",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+        return tool_output
+    
+    platform_user_id = existing.data[0]["platform_user_id"]
+    
+    # Publish the post
+    result = await instagram_profile.publishInstagramPost(
+        platform_user_id=platform_user_id,
+        image_url=image_url,
+        caption=caption
+    )
+    
+    if result.get("success"):
+        tool_output = f"Post published successfully! Post ID: {result.get('post_id')}. {result.get('message')}"
+        log_tool_event(
+            tool_name="publish_post",
+            status="success",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+    else:
+        tool_output = f"Failed to publish post: {result.get('message')}. Error: {result.get('error')}"
+        log_tool_event(
+            tool_name="publish_post",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+    
+    return tool_output
+
+
+@tool("get_profile_info")
+async def get_profile_info(config: RunnableConfig):
+    """
+    Fetch Instagram profile information including username, followers, following, media count, biography, and website.
+    Use this tool when user asks for profile details or account information.
+    """
+    user_id = get_user_id(config)
+    
+    log_tool_event(
+        tool_name="get_profile_info",
+        status="started",
+        params={"user_id": user_id},
+        parent_node="instagram_agent_node",
+    )
+    
+    existing = (
+        supabase.table("connected_accounts")
+        .select("platform_user_id")
+        .eq("provider_id", user_id)
+        .eq("platform", "instagram")
+        .execute()
+    )
+    
+    if not existing.data:
+        tool_output = "No Instagram account found connected. Ask the user to connect their Instagram account."
+        log_tool_event(
+            tool_name="get_profile_info",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+        return tool_output
+    
+    platform_user_id = existing.data[0]["platform_user_id"]
+    tool_output = await instagram_profile.getProfileInfo(platform_user_id)
+    
+    log_tool_event(
+        tool_name="get_profile_info",
+        status="success",
+        params={},
+        parent_node="instagram_agent_node",
+        tool_output=ToolOutput(output=str(tool_output)).to_dict(),
+    )
+    return str(tool_output)
+
+
+@tool("get_recent_posts")
+async def get_recent_posts(
+    limit: int = Field(25, description="Number of recent posts to fetch (default 25, max 100)"),
+    config: RunnableConfig = None
+):
+    """
+    Fetch recent media posts from Instagram account with details like caption, likes, comments, media type, and timestamp.
+    Use this when user asks for recent posts or latest content.
+    """
+    user_id = get_user_id(config)
+    
+    log_tool_event(
+        tool_name="get_recent_posts",
+        status="started",
+        params={"limit": limit},
+        parent_node="instagram_agent_node",
+    )
+    
+    existing = (
+        supabase.table("connected_accounts")
+        .select("platform_user_id")
+        .eq("provider_id", user_id)
+        .eq("platform", "instagram")
+        .execute()
+    )
+    
+    if not existing.data:
+        tool_output = "No Instagram account found connected. Ask the user to connect their Instagram account."
+        log_tool_event(
+            tool_name="get_recent_posts",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+        return tool_output
+    
+    platform_user_id = existing.data[0]["platform_user_id"]
+    tool_output = await instagram_profile.getRecentMedia(platform_user_id, limit)
+    
+    log_tool_event(
+        tool_name="get_recent_posts",
+        status="success",
+        params={},
+        parent_node="instagram_agent_node",
+        tool_output=ToolOutput(output=str(tool_output)).to_dict(),
+    )
+    return str(tool_output)
+
+
+@tool("get_top_posts")
+async def get_top_posts(
+    limit: int = Field(25, description="Number of posts to analyze for top performers (default 25)"),
+    config: RunnableConfig = None
+):
+    """
+    Fetch top performing posts sorted by engagement (likes + comments).
+    Use this when user asks for best posts, top content, or most engaging posts.
+    """
+    user_id = get_user_id(config)
+    
+    log_tool_event(
+        tool_name="get_top_posts",
+        status="started",
+        params={"limit": limit},
+        parent_node="instagram_agent_node",
+    )
+    
+    existing = (
+        supabase.table("connected_accounts")
+        .select("platform_user_id")
+        .eq("provider_id", user_id)
+        .eq("platform", "instagram")
+        .execute()
+    )
+    
+    if not existing.data:
+        tool_output = "No Instagram account found connected. Ask the user to connect their Instagram account."
+        log_tool_event(
+            tool_name="get_top_posts",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+        return tool_output
+    
+    platform_user_id = existing.data[0]["platform_user_id"]
+    tool_output = await instagram_profile.getTopPosts(platform_user_id, limit)
+    
+    log_tool_event(
+        tool_name="get_top_posts",
+        status="success",
+        params={},
+        parent_node="instagram_agent_node",
+        tool_output=ToolOutput(output=str(tool_output)).to_dict(),
+    )
+    return str(tool_output)
+
+
+@tool("get_post_insights")
+async def get_post_insights(
+    media_id: str = Field(..., description="Instagram media/post ID to fetch insights for"),
+    config: RunnableConfig = None
+):
+    """
+    Fetch detailed insights for a specific post including impressions, reach, engagement, saves, likes, comments, and shares.
+    Use this when user asks for specific post performance or analytics.
+    """
+    user_id = get_user_id(config)
+    
+    log_tool_event(
+        tool_name="get_post_insights",
+        status="started",
+        params={"media_id": media_id},
+        parent_node="instagram_agent_node",
+    )
+    
+    existing = (
+        supabase.table("connected_accounts")
+        .select("platform_user_id")
+        .eq("provider_id", user_id)
+        .eq("platform", "instagram")
+        .execute()
+    )
+    
+    if not existing.data:
+        tool_output = "No Instagram account found connected. Ask the user to connect their Instagram account."
+        log_tool_event(
+            tool_name="get_post_insights",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+        return tool_output
+    
+    platform_user_id = existing.data[0]["platform_user_id"]
+    tool_output = await instagram_profile.getMediaInsights(platform_user_id, media_id)
+    
+    log_tool_event(
+        tool_name="get_post_insights",
+        status="success",
+        params={},
+        parent_node="instagram_agent_node",
+        tool_output=ToolOutput(output=str(tool_output)).to_dict(),
+    )
+    return str(tool_output)
+
+
+@tool("get_post_comments")
+async def get_post_comments(
+    media_id: str = Field(..., description="Instagram media/post ID to fetch comments for"),
+    config: RunnableConfig = None
+):
+    """
+    Fetch comments for a specific Instagram post including comment text, username, timestamp, and like count.
+    Use this when user asks for comments on a post or comment analysis.
+    """
+    user_id = get_user_id(config)
+    
+    log_tool_event(
+        tool_name="get_post_comments",
+        status="started",
+        params={"media_id": media_id},
+        parent_node="instagram_agent_node",
+    )
+    
+    existing = (
+        supabase.table("connected_accounts")
+        .select("platform_user_id")
+        .eq("provider_id", user_id)
+        .eq("platform", "instagram")
+        .execute()
+    )
+    
+    if not existing.data:
+        tool_output = "No Instagram account found connected. Ask the user to connect their Instagram account."
+        log_tool_event(
+            tool_name="get_post_comments",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+        return tool_output
+    
+    platform_user_id = existing.data[0]["platform_user_id"]
+    tool_output = await instagram_profile.getComments(platform_user_id, media_id)
+    
+    log_tool_event(
+        tool_name="get_post_comments",
+        status="success",
+        params={},
+        parent_node="instagram_agent_node",
+        tool_output=ToolOutput(output=str(tool_output)).to_dict(),
+    )
+    return str(tool_output)
+
+
+@tool("search_hashtag")
+async def search_hashtag(
+    hashtag: str = Field(..., description="Hashtag to search (with or without # symbol)"),
+    config: RunnableConfig = None
+):
+    """
+    Search for a hashtag on Instagram. 
+    Note: This requires Instagram Business/Creator account with specific permissions.
+    If not available, use analyze_hashtags tool instead to analyze hashtags in your own posts.
+    """
+    user_id = get_user_id(config)
+    
+    log_tool_event(
+        tool_name="search_hashtag",
+        status="started",
+        params={"hashtag": hashtag},
+        parent_node="instagram_agent_node",
+    )
+    
+    existing = (
+        supabase.table("connected_accounts")
+        .select("platform_user_id")
+        .eq("provider_id", user_id)
+        .eq("platform", "instagram")
+        .execute()
+    )
+    
+    if not existing.data:
+        tool_output = "No Instagram account found connected. Ask the user to connect their Instagram account."
+        log_tool_event(
+            tool_name="search_hashtag",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+        return tool_output
+    
+    platform_user_id = existing.data[0]["platform_user_id"]
+    tool_output = await instagram_profile.getHashtagSearch(platform_user_id, hashtag)
+    
+    # Check if it's a permission error and suggest alternative
+    if isinstance(tool_output, dict) and tool_output.get("status") in ["permission_required", "not_available"]:
+        tool_output_str = f"{tool_output.get('error')} Consider using analyze_hashtags tool to see hashtag usage in your own posts instead."
+        log_tool_event(
+            tool_name="search_hashtag",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output_str).to_dict(),
+        )
+        return tool_output_str
+    
+    log_tool_event(
+        tool_name="search_hashtag",
+        status="success",
+        params={},
+        parent_node="instagram_agent_node",
+        tool_output=ToolOutput(output=str(tool_output)).to_dict(),
+    )
+    return str(tool_output)
+
+
+@tool("analyze_hashtags")
+async def analyze_hashtags(
+    limit: int = Field(25, description="Number of recent posts to analyze for hashtags (default 25)"),
+    config: RunnableConfig = None
+):
+    """
+    Analyze hashtags used in your own Instagram posts.
+    Returns hashtag frequency, top hashtags, and performance data.
+    Use this to understand which hashtags you use most and their engagement.
+    """
+    user_id = get_user_id(config)
+    
+    log_tool_event(
+        tool_name="analyze_hashtags",
+        status="started",
+        params={"limit": limit},
+        parent_node="instagram_agent_node",
+    )
+    
+    existing = (
+        supabase.table("connected_accounts")
+        .select("platform_user_id")
+        .eq("provider_id", user_id)
+        .eq("platform", "instagram")
+        .execute()
+    )
+    
+    if not existing.data:
+        tool_output = "No Instagram account found connected. Ask the user to connect their Instagram account."
+        log_tool_event(
+            tool_name="analyze_hashtags",
+            status="failed",
+            params={},
+            parent_node="instagram_agent_node",
+            tool_output=ToolOutput(output=tool_output).to_dict(),
+        )
+        return tool_output
+    
+    platform_user_id = existing.data[0]["platform_user_id"]
+    tool_output = await instagram_profile.analyzeHashtagsInPosts(platform_user_id, limit)
+    
+    log_tool_event(
+        tool_name="analyze_hashtags",
+        status="success",
+        params={},
+        parent_node="instagram_agent_node",
+        tool_output=ToolOutput(output=str(tool_output)).to_dict(),
+    )
+    return str(tool_output)
+
+
 def get_instagram_tool_registry() -> NodeRegistry:
     """
     Returns a NodeRegistry containing all Instagram tools.
@@ -156,6 +588,14 @@ def get_instagram_tool_registry() -> NodeRegistry:
     instagram_tool_register = NodeRegistry()
     instagram_tool_register.add("instagram_auth_verification", instagram_auth_verification, "tool")
     instagram_tool_register.add("profile_insight", profile_insight, "tool")
+    instagram_tool_register.add("get_profile_info", get_profile_info, "tool")
+    instagram_tool_register.add("get_recent_posts", get_recent_posts, "tool")
+    instagram_tool_register.add("get_top_posts", get_top_posts, "tool")
+    instagram_tool_register.add("get_post_insights", get_post_insights, "tool")
+    instagram_tool_register.add("get_post_comments", get_post_comments, "tool")
+    instagram_tool_register.add("search_hashtag", search_hashtag, "tool")
+    instagram_tool_register.add("analyze_hashtags", analyze_hashtags, "tool")
+    instagram_tool_register.add("publish_post", publish_post, "tool")
     instagram_tool_register.add("ask_human", ask_human, "tool")
     instagram_tool_register.add("instagram_error", instagram_error, "tool")
     return instagram_tool_register

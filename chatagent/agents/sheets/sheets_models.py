@@ -14,36 +14,36 @@ class SheetsInput(BaseModel):
 
 class CreateSpreadsheetInput(BaseModel):
     """Schema for creating a new spreadsheet."""
-    title: str = Field(..., description="The title of the new spreadsheet")
-    sheet_names: Optional[List[str]] = Field(None, description="Names of sheets to create (optional)")
+    title: str = Field(..., description="The title/name of the new spreadsheet. Will be visible in Google Drive and at the top of the sheet.")
+    sheet_names: Optional[List[str]] = Field(None, description="Optional list of sheet/tab names to create within the spreadsheet. If not provided, a default 'Sheet1' will be created. Examples: ['Q1', 'Q2', 'Q3', 'Q4'], ['Sales', 'Expenses', 'Summary']")
 
 
 class ReadRangeInput(BaseModel):
     """Schema for reading data from a specific range."""
-    spreadsheet_id: str = Field(..., description="The ID of the Google Sheets spreadsheet")
-    range_name: str = Field(..., description="The range to read (e.g., 'Sheet1!A1:C10' or 'A1:C10')")
+    spreadsheet_id: str = Field(..., description="The ID of the Google Sheets spreadsheet (found in the URL after /d/, e.g., '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms')")
+    range_name: str = Field(..., description="The range to read in A1 notation. Examples: 'Sheet1!A1:C10' (specific range), 'Sheet1!A:A' (entire column), 'Sheet1!1:5' (first 5 rows), 'A1:C10' (default sheet), 'Sheet1!A1' (single cell)")
 
 
 class WriteDataInput(BaseModel):
     """Schema for writing data to a spreadsheet."""
-    spreadsheet_id: str = Field(..., description="The ID of the Google Sheets spreadsheet")
-    range_name: str = Field(..., description="The range to write to (e.g., 'Sheet1!A1:C10')")
-    values: List[List[Union[str, int, float]]] = Field(..., description="2D array of values to write")
-    value_input_option: str = Field("RAW", description="How values should be interpreted (RAW or USER_ENTERED)")
+    spreadsheet_id: str = Field(..., description="The ID of the Google Sheets spreadsheet (found in URL after /d/)")
+    range_name: str = Field(..., description="The range to write to in A1 notation (e.g., 'Sheet1!A1:C10', 'Sheet1!A1', 'A1:C10'). Specifies starting position for data.")
+    values: List[List[Union[str, int, float]]] = Field(..., description="2D array of values to write. Format: [['row1col1', 'row1col2'], ['row2col1', 'row2col2']]. Each inner list is a row, each element is a cell value.")
+    value_input_option: str = Field("RAW", description="How values should be interpreted: 'RAW' (write exactly as-is, strings stay strings) or 'USER_ENTERED' (parse like user typed it - converts numbers, dates, formulas)")
 
 
 class AppendDataInput(BaseModel):
     """Schema for appending data to a spreadsheet."""
-    spreadsheet_id: str = Field(..., description="The ID of the Google Sheets spreadsheet")
-    range_name: str = Field(..., description="The range to append to (e.g., 'Sheet1!A:C')")
-    values: List[List[Union[str, int, float]]] = Field(..., description="2D array of values to append")
-    value_input_option: str = Field("RAW", description="How values should be interpreted (RAW or USER_ENTERED)")
+    spreadsheet_id: str = Field(..., description="The ID of the Google Sheets spreadsheet (found in URL after /d/)")
+    range_name: str = Field(..., description="The table range to append to in A1 notation (e.g., 'Sheet1!A:C' for columns A-C, 'Sheet1!A1:C' for table starting at A1). Data will be added after the last row with content.")
+    values: List[List[Union[str, int, float]]] = Field(..., description="2D array of rows to append. Format: [['row1col1', 'row1col2'], ['row2col1', 'row2col2']]. Each inner list becomes a new row added to the end of existing data.")
+    value_input_option: str = Field("RAW", description="How values should be interpreted: 'RAW' (write exactly as-is) or 'USER_ENTERED' (parse as if user typed - converts numbers, dates, formulas automatically)")
 
 
 class ClearRangeInput(BaseModel):
     """Schema for clearing data from a range."""
-    spreadsheet_id: str = Field(..., description="The ID of the Google Sheets spreadsheet")
-    range_name: str = Field(..., description="The range to clear (e.g., 'Sheet1!A1:C10')")
+    spreadsheet_id: str = Field(..., description="The ID of the Google Sheets spreadsheet (found in URL after /d/)")
+    range_name: str = Field(..., description="The range to clear in A1 notation (e.g., 'Sheet1!A1:C10' for specific range, 'Sheet1!A:A' for entire column, 'Sheet1!1:5' for rows 1-5). All data in this range will be permanently deleted.")
 
 
 class CreateSheetInput(BaseModel):
