@@ -1,0 +1,391 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sidebar-width-expanded: 220px;
+  --sidebar-width-collapsed: 70px;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@layer utilities {
+  .animate-float {
+    animation: float 8s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px) rotate(0deg) scale(1);
+    }
+    25% {
+      transform: translateY(-15px) rotate(2deg) scale(1.05);
+    }
+    50% {
+      transform: translateY(-25px) rotate(0deg) scale(1.1);
+    }
+    75% {
+      transform: translateY(-15px) rotate(-2deg) scale(1.05);
+    }
+  }
+
+  .animate-pulse-slow {
+    animation: pulse-slow 4s ease-in-out infinite;
+  }
+  
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  .animate-glow {
+    animation: glow 3s ease-in-out infinite alternate;
+  }
+  
+  @keyframes glow {
+    from {
+      text-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff, 0 0 15px #00ffff;
+    }
+    to {
+      text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff;
+    }
+  }
+
+  /* Themed scrollbars (WebKit browsers: Chrome, Edge, Safari) */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #8b5cf6, #7c3aed); /* violet gradient */
+    border-radius: 8px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 6px 12px rgba(0,0,0,0.2);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #a78bfa, #8b5cf6);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #8b5cf6 rgba(255, 255, 255, 0.06);
+  }
+
+  /* Slightly slimmer scrollbars on small screens */
+  @media (max-width: 640px) {
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+  }
+
+  /* Mobile optimizations */
+  @media (max-width: 640px) {
+    .animate-float {
+      animation: float-mobile 6s ease-in-out infinite;
+    }
+    
+    @keyframes float-mobile {
+      0%, 100% {
+        transform: translateY(0px) scale(0.8);
+      }
+      50% {
+        transform: translateY(-10px) scale(0.9);
+      }
+    }
+  }
+
+  /* Sidebar-specific thin scrollbar */
+  .sidebar-scroll {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #8b5cf6 transparent;
+  }
+
+  /* WebKit (Chrome, Edge, Safari) */
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+    border-radius: 8px;
+  }
+
+  @media (max-width: 640px) {
+    .sidebar-scroll::-webkit-scrollbar {
+      width: 3px;
+      height: 3px;
+    }
+  }
+
+  /* Thinking dots animation */
+  .thinking-dots span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #9ca3af; /* gray-400 */
+    margin: 0 2px;
+    animation: thinking-blink 1.4s infinite both;
+  }
+
+  .thinking-dots span:nth-child(1) {
+    animation-delay: 0s;
+  }
+  .thinking-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+  .thinking-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes thinking-blink {
+    0%, 80%, 100% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    40% {
+      transform: scale(1.0);
+      opacity: 1;
+    }
+  }
+
+  /* Fold/unfold animations */
+  @keyframes unfold-down {
+    from {
+      transform: scaleY(0);
+      opacity: 0;
+      max-height: 0;
+    }
+    to {
+      transform: scaleY(1);
+      opacity: 1;
+      max-height: 200px; /* Should be >= max-h-[90px] */
+    }
+  }
+
+  @keyframes fold-up {
+    from {
+      transform: scaleY(1);
+      opacity: 1;
+      max-height: 200px;
+    }
+    to {
+      transform: scaleY(0);
+      opacity: 0;
+      max-height: 0;
+    }
+  }
+
+  .animate-unfold-down {
+    transform-origin: top;
+    animation: unfold-down 300ms ease-in-out forwards;
+  }
+
+  .animate-fold-up {
+    transform-origin: top;
+    animation: fold-up 300ms ease-in-out forwards;
+  }
+}
+
+body {
+  background-color: #0a0a0a; /* --background-primary */
+  color: #ffffff; /* --white-primary */
+}
+
+/* Hide scrollbar for streaming message box */
+.streaming-content-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.streaming-content-scroll {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Additional scrollbar hiding for streaming messages */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+/* HTML Email Content Styling */
+.email-html-content {
+  /* Reset and base styles */
+  line-height: 1.6;
+  color: inherit;
+  text-align: left !important;
+  direction: ltr !important;
+}
+
+.email-html-content *,
+.email-html-content *[style*="text-align"],
+.email-html-content *[align] {
+  text-align: left !important;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.email-html-content p,
+.email-html-content div,
+.email-html-content span,
+.email-html-content td,
+.email-html-content th {
+  margin: 0.5em 0;
+  text-align: left !important;
+}
+
+.email-html-content h1,
+.email-html-content h2,
+.email-html-content h3,
+.email-html-content h4,
+.email-html-content h5,
+.email-html-content h6 {
+  margin: 0.75em 0 0.5em 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.email-html-content h1 { font-size: 1.5em; }
+.email-html-content h2 { font-size: 1.3em; }
+.email-html-content h3 { font-size: 1.17em; }
+.email-html-content h4 { font-size: 1em; }
+.email-html-content h5 { font-size: 0.9em; }
+.email-html-content h6 { font-size: 0.85em; }
+
+.email-html-content ul,
+.email-html-content ol {
+  margin: 0.5em 0;
+  padding-left: 2em;
+}
+
+.email-html-content li {
+  margin: 0.25em 0;
+}
+
+.email-html-content a {
+  color: #8b5cf6;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.email-html-content a:hover {
+  color: #a78bfa;
+}
+
+.email-html-content strong,
+.email-html-content b {
+  font-weight: 600;
+}
+
+.email-html-content em,
+.email-html-content i {
+  font-style: italic;
+}
+
+.email-html-content blockquote {
+  margin: 0.75em 0;
+  padding-left: 1em;
+  border-left: 3px solid #8b5cf6;
+  color: rgba(203, 213, 225, 0.9);
+}
+
+.email-html-content code {
+  background: rgba(139, 92, 246, 0.1);
+  padding: 0.125em 0.25em;
+  border-radius: 0.25em;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9em;
+}
+
+.email-html-content pre {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.75em;
+  border-radius: 0.375em;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.email-html-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.email-html-content hr {
+  margin: 1em 0;
+  border: none;
+  border-top: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.email-html-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75em 0;
+}
+
+.email-html-content th,
+.email-html-content td {
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  padding: 0.5em;
+  text-align: left;
+}
+
+.email-html-content th {
+  background: rgba(139, 92, 246, 0.1);
+  font-weight: 600;
+}
+
+.email-html-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.25em;
+  margin: 0.5em 0;
+}
+
+.email-html-content div,
+.email-html-content span {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Utility for aggressive word breaking */
+.overflow-wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}

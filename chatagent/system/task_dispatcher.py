@@ -53,14 +53,25 @@ def task_dispatcher(registry: NodeRegistry):
                 <allowed_choices>{dynamic_allowed_choices}</allowed_choices>
             </prompt>"""
 
-    def _create_command(goto: str, state: State, reason: str, usages_data: dict, next_type: str = "thinker", dispatch_retries: int = 0, reset_task_status: bool = False) -> Command:
+    def _create_command(goto: str, state: State, reason: str, usages_data: dict, next_type: str = "thinker", dispatch_retries: int = 0, reset_task_status: bool = False, messages=None, current_message=None) -> Command:
         """Helper to create consistent Command objects with all required state."""
+        # Use provided messages or default to dispatcher message
+        if messages is None:
+            messages = [AIMessage(content=f"Dispatcher: {reason}")]
+        elif isinstance(messages, str):
+            messages = [AIMessage(content=messages)]
+        
+        if current_message is None:
+            current_message = [AIMessage(content=reason)]
+        elif isinstance(current_message, str):
+            current_message = [AIMessage(content=current_message)]
+        
         return Command(
             goto=goto,
             update={
                 "input": state["input"],
-                "messages": [AIMessage(content=f"Dispatcher: {reason}")],
-                "current_message": [AIMessage(content=reason)],
+                "messages": messages,
+                "current_message": current_message,
                 "reason": reason,
                 "provider_id": state.get("provider_id"),
                 "node": node_name,
@@ -183,11 +194,16 @@ def task_dispatcher(registry: NodeRegistry):
             response.next = "END"
             response.reason = f"Selected agent not available for this query. {response.reason}"
 
+        
+
         # Handle NEXT_TASK command
         if response.next.upper() == "NEXT_TASK":
+            print("Reason for NEXT_TASK:", response.reason)
             return _create_command(
                 goto="task_selection_node",
                 state=state,
+                messages=response.reason,
+                current_message=response.reason,
                 reason=response.reason,
                 usages_data=usages_data,
                 next_type="planner",
@@ -200,6 +216,8 @@ def task_dispatcher(registry: NodeRegistry):
                 goto="final_answer_node",
                 state=state,
                 reason=f"{response.reason}",
+                messages=response.reason,
+                current_message=response.reason,
                 usages_data=usages_data,
                 next_type="END",
                 dispatch_retries=new_dispatch_retries
@@ -214,6 +232,8 @@ def task_dispatcher(registry: NodeRegistry):
             goto=response.next,
             state=state,
             reason=response.reason,
+            messages=response.reason,
+            current_message=response.reason,
             usages_data=usages_data,
             next_type=next_type,
             dispatch_retries=new_dispatch_retries
