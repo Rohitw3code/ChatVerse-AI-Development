@@ -2,7 +2,7 @@ from chatagent.utils import State, usages, sanitize_messages
 from langchain_core.messages import AIMessage, ToolMessage, SystemMessage, HumanMessage
 from langgraph.types import Command
 from langchain_community.callbacks.openai_info import OpenAICallbackHandler
-from langgraph.config import get_stream_writer
+from langchain_community.callbacks import get_openai_callback
 from chatagent.node_registry import NodeRegistry
 from chatagent.model.tool_output import ToolOutput
 from chatagent.config.init import stream_llm
@@ -11,7 +11,6 @@ import inspect
 from pydantic import BaseModel, Field
 
 
-callback_handler = OpenAICallbackHandler()
 import json
 
 class AgentDecision(BaseModel):
@@ -54,24 +53,8 @@ def make_agent_tool_node(
 
 
     async def agent_tool_node(state: State) -> Command[Literal["task_dispatcher_node"] | str]:
-        writer = get_stream_writer()
-        writer(
-            {
-                node_name: {
-                    "current_message": [AIMessage(content=f"Using {node_name} Node to get information")],
-                    "reason": f"I need to execute the {node_name}",
-                    "next_node": "tool",
-                    "node_type": "agent",
-                    "next_node_type": "tool",
-                    "type": "executor",
-                    "next_type": "tool",
-                    "status": "started",
-                    "params": {},
-                    "tool_output": ToolOutput().to_dict(),
-                    "usages": {},
-                }
-            }
-        )
+        # Don't emit initial stream chunk - let the Command return handle streaming
+        # with proper usage data after LLM calls are completed
         
         recent_messages = state["messages"]
         
@@ -84,13 +67,24 @@ def make_agent_tool_node(
 
         # print("\n\n\n[BIND TOOL ] ",members.runs(), "\n\n\n")
         
-        ai_msg: AIMessage = await stream_llm.bind_tools(members.runs()).ainvoke(
-            messages, config={"callbacks": [callback_handler]}
-        )
+        # Use get_openai_callback context manager for proper usage tracking
+        with get_openai_callback() as cb:
+            ai_msg: AIMessage = await stream_llm.bind_tools(members.runs()).ainvoke(
+                messages
+            )
 
         # print("\n\n\n[AGENT TOOL NODE] LLM Message:", ai_msg, "\n\n\n")
 
-        usages_data = usages(callback_handler)
+        usages_data = usages(cb)
+        
+        # Show token usage summary for this agent execution
+        if usages_data.get('total_tokens', 0) > 0:
+            print(f"\n🤖 [AGENT EXECUTION] {node_name}:")
+            print(f"   • Total Cost: ${usages_data['total_cost']:.6f}")
+            print(f"   • Total Tokens: {usages_data['total_tokens']}")
+            print(f"   • Breakdown: {usages_data['prompt_tokens']} prompt + {usages_data['completion_tokens']} completion")
+            print()
+        
         tools = members.tools()
         out = None
 
@@ -119,10 +113,22 @@ def make_agent_tool_node(
                         if 'state' in sig.parameters:
                             tool_input['state'] = state
                         
-                    out = await tool_to_run.ainvoke(
-                        tool_input, config={"callbacks": [callback_handler]}
-                    )
-                    print("\n\ntool calling : ", out)
+                    # Tool calls should also track usage
+                    with get_openai_callback() as tool_cb:
+                        out = await tool_to_run.ainvoke(tool_input)
+                    
+                    # Aggregate tool callback data with main callback
+                    cb.total_cost += tool_cb.total_cost
+                    cb.total_tokens += tool_cb.total_tokens
+                    cb.prompt_tokens += tool_cb.prompt_tokens
+                    cb.completion_tokens += tool_cb.completion_tokens
+                    cb.successful_requests += tool_cb.successful_requests
+                    
+                    # Show individual tool usage if it consumed tokens
+                    if tool_cb.total_tokens > 0:
+                        print(f"   🔧 Tool '{name}': ${tool_cb.total_cost:.6f}, {tool_cb.total_tokens} tokens")
+                    
+                    print("tool calling : ", out)
                 else:
                     out = {"error": "bad tool name, retry"}
 
@@ -147,6 +153,13 @@ def make_agent_tool_node(
                     "id": getattr(tool_msg, "id", None),
                 })
 
+        # Update usages_data with final accumulated usage
+        usages_data = usages(cb)
+        
+        # Final summary if any tokens were used
+        if usages_data.get('total_tokens', 0) > 0:
+            print(f"   📊 Final Usage: ${usages_data['total_cost']:.6f}, {usages_data['total_tokens']} tokens\n")
+        
         tool_output = ToolOutput(output={"tools": tools_info}).to_dict()
 
         # For decision making, only use recent messages to avoid context overflow
@@ -172,10 +185,21 @@ def make_agent_tool_node(
         )
         decision_messages = [task_context_message] + decision_messages
         
-        decision: AgentDecision = stream_llm.with_structured_output(AgentDecision).invoke(
-            decision_messages
-        )
-
+        # Decision making should also track usage
+        with get_openai_callback() as decision_cb:
+            decision: AgentDecision = stream_llm.with_structured_output(AgentDecision).invoke(
+                decision_messages
+            )
+        
+        # Add decision callback to main callback
+        cb.total_cost += decision_cb.total_cost
+        cb.total_tokens += decision_cb.total_tokens
+        cb.prompt_tokens += decision_cb.prompt_tokens
+        cb.completion_tokens += decision_cb.completion_tokens
+        cb.successful_requests += decision_cb.successful_requests
+        
+        # Final usage data
+        usages_data = usages(cb)
         print("\n\n\n[AGENT TOOL NODE] Decision:", decision, "\n\n\n")
 
         if tool_output and decision.next_node == "RETRY":

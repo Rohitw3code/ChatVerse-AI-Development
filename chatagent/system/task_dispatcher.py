@@ -180,12 +180,6 @@ def task_dispatcher(registry: NodeRegistry):
                 print(f"[ERROR] LLM failed to produce valid Router output: {e}")
                 response = Router(next="END", reason="LLM invocation failed, ending safely.")
 
-
-        print("\n\n\n")
-        print("=== START DISPATCHER DEBUG ===")
-        print("usages callback:", cb)
-        print("\n\n\n")
-
         usages_data = usages(cb)
 
         # Validate response against dynamic allowed choices
