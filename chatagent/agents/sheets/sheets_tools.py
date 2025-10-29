@@ -339,7 +339,7 @@ def write_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], v
             status="success",
             params={"spreadsheet_id": spreadsheet_id, "range_name": range_name},
             parent_node="sheets_agent_node",
-            tool_output=ToolOutput(output=tool_output, show=True),
+            tool_output=ToolOutput(output=tool_output, show=True,type="spreadsheet_write"),
         )
         return tool_output
 
