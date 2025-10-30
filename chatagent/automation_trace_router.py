@@ -29,6 +29,14 @@ class UpdateTracePayload(BaseModel):
     trace_data: Optional[List[Dict[str, Any]]] = None
 
 
+class DeployAutomationPayload(BaseModel):
+    trace_id: str
+    schedule_type: str  # 'daily', 'weekly', 'monthly', 'custom'
+    schedule_time: str  # Time or schedule string (e.g., "09:00", "Monday at 3pm")
+    schedule_config: Optional[Dict[str, Any]] = None  # Additional config (days, intervals, etc.)
+    name: Optional[str] = None  # Optional name for the automation
+
+
 @automation_trace_router.post("/traces")
 async def save_automation_trace(payload: SaveTracePayload):
     """
@@ -211,3 +219,70 @@ async def delete_automation_trace(trace_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete trace: {str(e)}")
+
+
+@automation_trace_router.post("/deploy")
+async def deploy_automation(payload: DeployAutomationPayload):
+    """
+    Deploy an automation with schedule information.
+    Updates the trace with deployment status and schedule configuration.
+    
+    Args:
+        payload: Contains trace_id, schedule_type, schedule_time, optional schedule_config and name
+    
+    Returns:
+        JSON response with success message
+    """
+    try:
+        success = await automation_db.deploy_automation(
+            trace_id=payload.trace_id,
+            schedule_type=payload.schedule_type,
+            schedule_time=payload.schedule_time,
+            schedule_config=payload.schedule_config,
+            name=payload.name
+        )
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Trace not found")
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "Automation deployed successfully",
+            "deployment_status": "deployed"
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to deploy automation: {str(e)}")
+
+
+@automation_trace_router.patch("/deployment-status/{trace_id}")
+async def update_deployment_status(trace_id: str, status: str = Query(..., description="New status (draft, deployed, paused, failed)")):
+    """
+    Update the deployment status of an automation.
+    
+    Args:
+        trace_id: UUID of the trace
+        status: New deployment status
+    
+    Returns:
+        JSON response with success message
+    """
+    try:
+        valid_statuses = ['draft', 'deployed', 'paused', 'failed']
+        if status not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+        
+        success = await automation_db.update_deployment_status(trace_id, status)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Trace not found")
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": f"Deployment status updated to '{status}'"
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update deployment status: {str(e)}")

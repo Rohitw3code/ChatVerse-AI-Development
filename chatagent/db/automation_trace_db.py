@@ -60,7 +60,8 @@ class AutomationTraceDB:
             result = await conn.execute(
                 """
                 SELECT id, user_id, provider_id, thread_id, name, trace_data, 
-                       created_at, updated_at
+                       deployment_status, schedule_type, schedule_time, schedule_config,
+                       deployed_at, created_at, updated_at
                 FROM automation_traces
                 WHERE id = %s
                 """,
@@ -78,6 +79,11 @@ class AutomationTraceDB:
                 "thread_id": row["thread_id"],
                 "name": row["name"],
                 "trace_data": row["trace_data"],
+                "deployment_status": row["deployment_status"],
+                "schedule_type": row["schedule_type"],
+                "schedule_time": row["schedule_time"],
+                "schedule_config": row["schedule_config"],
+                "deployed_at": row["deployed_at"].isoformat() if row["deployed_at"] else None,
                 "created_at": row["created_at"].isoformat() if row["created_at"] else None,
                 "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None
             }
@@ -97,7 +103,8 @@ class AutomationTraceDB:
             result = await conn.execute(
                 """
                 SELECT id, user_id, provider_id, thread_id, name, trace_data, 
-                       created_at, updated_at
+                       deployment_status, schedule_type, schedule_time, schedule_config,
+                       deployed_at, created_at, updated_at
                 FROM automation_traces
                 WHERE thread_id = %s
                 ORDER BY created_at DESC
@@ -117,6 +124,11 @@ class AutomationTraceDB:
                 "thread_id": row["thread_id"],
                 "name": row["name"],
                 "trace_data": row["trace_data"],
+                "deployment_status": row["deployment_status"],
+                "schedule_type": row["schedule_type"],
+                "schedule_time": row["schedule_time"],
+                "schedule_config": row["schedule_config"],
+                "deployed_at": row["deployed_at"].isoformat() if row["deployed_at"] else None,
                 "created_at": row["created_at"].isoformat() if row["created_at"] else None,
                 "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None
             }
@@ -145,7 +157,8 @@ class AutomationTraceDB:
             if provider_id:
                 query = """
                     SELECT id, user_id, provider_id, thread_id, name, 
-                           created_at, updated_at,
+                           deployment_status, schedule_type, schedule_time,
+                           deployed_at, created_at, updated_at,
                            jsonb_array_length(trace_data) as entry_count
                     FROM automation_traces
                     WHERE user_id = %s AND provider_id = %s
@@ -156,7 +169,8 @@ class AutomationTraceDB:
             else:
                 query = """
                     SELECT id, user_id, provider_id, thread_id, name, 
-                           created_at, updated_at,
+                           deployment_status, schedule_type, schedule_time,
+                           deployed_at, created_at, updated_at,
                            jsonb_array_length(trace_data) as entry_count
                     FROM automation_traces
                     WHERE user_id = %s
@@ -176,6 +190,10 @@ class AutomationTraceDB:
                     "provider_id": row["provider_id"],
                     "thread_id": row["thread_id"],
                     "name": row["name"],
+                    "deployment_status": row["deployment_status"],
+                    "schedule_type": row["schedule_type"],
+                    "schedule_time": row["schedule_time"],
+                    "deployed_at": row["deployed_at"].isoformat() if row["deployed_at"] else None,
                     "created_at": row["created_at"].isoformat() if row["created_at"] else None,
                     "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
                     "entry_count": row["entry_count"]
@@ -315,3 +333,88 @@ class AutomationTraceDB:
                 )
                 row = await result.fetchone()
                 return str(row["id"])
+
+    async def deploy_automation(
+        self,
+        trace_id: str,
+        schedule_type: str,
+        schedule_time: str,
+        schedule_config: Optional[Dict[str, Any]] = None,
+        name: Optional[str] = None
+    ) -> bool:
+        """
+        Deploy an automation by updating its deployment status and schedule information.
+        
+        Args:
+            trace_id: UUID of the trace to deploy
+            schedule_type: Type of schedule (daily, weekly, monthly, custom)
+            schedule_time: Time or schedule configuration
+            schedule_config: Additional schedule configuration (days, intervals, etc.)
+            name: Optional name for the automation
+        
+        Returns:
+            True if deployed successfully, False if not found
+        """
+        pool = await self.db_manager.get_pool()
+        async with pool.connection() as conn:
+            update_parts = [
+                "deployment_status = %s",
+                "schedule_type = %s",
+                "schedule_time = %s",
+                "schedule_config = %s",
+                "deployed_at = NOW()"
+            ]
+            params = [
+                "deployed",
+                schedule_type,
+                schedule_time,
+                json.dumps(schedule_config) if schedule_config else None
+            ]
+            
+            if name is not None:
+                update_parts.append("name = %s")
+                params.append(name)
+            
+            params.append(trace_id)
+            
+            query = f"""
+                UPDATE automation_traces
+                SET {', '.join(update_parts)}
+                WHERE id = %s
+                RETURNING id
+            """
+            
+            result = await conn.execute(query, tuple(params))
+            row = await result.fetchone()
+            
+            return row is not None
+
+    async def update_deployment_status(
+        self,
+        trace_id: str,
+        status: str
+    ) -> bool:
+        """
+        Update the deployment status of an automation.
+        
+        Args:
+            trace_id: UUID of the trace
+            status: New status (draft, deployed, paused, failed)
+        
+        Returns:
+            True if updated, False if not found
+        """
+        pool = await self.db_manager.get_pool()
+        async with pool.connection() as conn:
+            result = await conn.execute(
+                """
+                UPDATE automation_traces
+                SET deployment_status = %s
+                WHERE id = %s
+                RETURNING id
+                """,
+                (status, trace_id)
+            )
+            row = await result.fetchone()
+            
+            return row is not None

@@ -14,6 +14,13 @@ CREATE TABLE IF NOT EXISTS automation_traces (
     -- Simple metadata
     name VARCHAR(255),
     
+    -- Deployment information
+    deployment_status VARCHAR(50) DEFAULT 'draft', -- 'draft', 'deployed', 'paused', 'failed'
+    schedule_type VARCHAR(50), -- 'daily', 'weekly', 'monthly', 'custom'
+    schedule_time VARCHAR(255), -- Time or schedule configuration (e.g., "09:00", "Monday at 3pm")
+    schedule_config JSONB, -- Additional schedule configuration (days, intervals, etc.)
+    deployed_at TIMESTAMPTZ, -- When the automation was deployed
+    
     -- The complete automation trace data stored as JSONB
     trace_data JSONB NOT NULL,
     -- Structure matches frontend AutomationTraceEntry[]:
@@ -41,6 +48,8 @@ CREATE INDEX IF NOT EXISTS idx_automation_traces_user_id ON automation_traces(us
 CREATE INDEX IF NOT EXISTS idx_automation_traces_thread_id ON automation_traces(thread_id);
 CREATE INDEX IF NOT EXISTS idx_automation_traces_created_at ON automation_traces(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_automation_traces_trace_data ON automation_traces USING GIN(trace_data);
+CREATE INDEX IF NOT EXISTS idx_automation_traces_deployment_status ON automation_traces(deployment_status);
+CREATE INDEX IF NOT EXISTS idx_automation_traces_deployed_at ON automation_traces(deployed_at DESC);
 
 -- Update trigger for updated_at column
 CREATE OR REPLACE FUNCTION update_updated_at_column()
