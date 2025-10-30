@@ -73,7 +73,7 @@ def verify_forms_connection(config: RunnableConfig):
     )
     
     if existing.data:
-        tool_output = f"✅ Google Forms is connected and ready to use"
+        tool_output = "Google Forms is connected and ready to use"
         log_tool_event(
             tool_name="verify_forms_connection",
             status="success",
@@ -83,7 +83,7 @@ def verify_forms_connection(config: RunnableConfig):
         )
         return tool_output
     else:
-        tool_output = "❌ Google Forms account is not connected. Please connect your Google account to use Forms."
+        tool_output = "Google Forms account is not connected. Please connect your Google account to use Forms."
         log_tool_event(
             tool_name="verify_forms_connection",
             status="failed",
@@ -118,7 +118,7 @@ def create_form(title: str, description: Optional[str] = None, config: RunnableC
     )
 
     if not forms_data.data:
-        tool_output = "❌ Google Forms account is not connected. Please connect your Google account first."
+        tool_output = "Google Forms account is not connected. Please connect your Google account first."
         log_tool_event(
             tool_name="create_form",
             status="failed",
@@ -155,6 +155,10 @@ def create_form(title: str, description: Optional[str] = None, config: RunnableC
         form_id = result.get('formId')
         responder_uri = result.get('responderUri')
         
+        # Get the edit URL (this is what users need to add questions)
+        # The form edit URL uses the actual form ID
+        edit_url = f"https://docs.google.com/forms/d/{form_id}/edit"
+        
         # If description provided, update it using batchUpdate
         if description:
             update_requests = [{
@@ -171,25 +175,27 @@ def create_form(title: str, description: Optional[str] = None, config: RunnableC
                 body={"requests": update_requests}
             ).execute()
 
-        tool_output = f"""
-✅ Form created successfully!
-📋 Title: {title}
-🆔 Form ID: {form_id}
-🔗 Form URL: {responder_uri}
-{f'📝 Description: {description}' if description else ''}
-        """
+        # Structured output for frontend
+        output_data = {
+            "title": title,
+            "form_id": form_id,
+            "form_url": responder_uri,
+            "edit_url": edit_url,
+            "description": description if description else None,
+            "message": "Form created successfully"
+        }
 
         log_tool_event(
             tool_name="create_form",
             status="success",
             params={"title": title, "description": description},
             parent_node="forms_agent_node",
-            tool_output=ToolOutput(output=tool_output, show=True, type="format"),
+            tool_output=ToolOutput(output=output_data, show=True, type="form_created"),
         )
-        return tool_output
+        return f"Form created successfully: {title}\nForm ID: {form_id}\nForm URL: {responder_uri}\nEdit URL: {edit_url}\n\nIMPORTANT: Use form ID '{form_id}' to add questions to this form."
 
     except Exception as e:
-        tool_output = f"❌ Error creating form: {str(e)}"
+        tool_output = f"Error creating form: {str(e)}"
         log_tool_event(
             tool_name="create_form",
             status="failed",
@@ -251,6 +257,18 @@ def add_form_question(
     service = build("forms", "v1", credentials=creds)
 
     try:
+        # Validate form ID format - form IDs should NOT start with "1FAIpQLSe"
+        if form_id.startswith("1FAIpQLSe"):
+            error_msg = f"Invalid form ID. The ID '{form_id}' appears to be a response ID (from the form submission URL), not a form ID. Please use the actual form ID which you can find in the form's edit URL: https://docs.google.com/forms/d/FORM_ID_HERE/edit"
+            log_tool_event(
+                tool_name="add_form_question",
+                status="failed",
+                params={"form_id": form_id},
+                parent_node="forms_agent_node",
+                tool_output=ToolOutput(output=error_msg),
+            )
+            return error_msg
+        
         # Get current form to determine item location
         form = service.forms().get(formId=form_id).execute()
         item_count = len(form.get('items', []))
@@ -317,19 +335,25 @@ def add_form_question(
         update_body = {"requests": requests}
         service.forms().batchUpdate(formId=form_id, body=update_body).execute()
 
-        tool_output = f"✅ Successfully added question '{question_text}' to form {form_id}"
+        output_data = {
+            "form_id": form_id,
+            "question_text": question_text,
+            "question_type": question_type,
+            "required": required,
+            "message": f"Question added successfully to form"
+        }
 
         log_tool_event(
             tool_name="add_form_question",
             status="success",
             params={"form_id": form_id, "question_text": question_text},
             parent_node="forms_agent_node",
-            tool_output=ToolOutput(output=tool_output, show=True),
+            tool_output=ToolOutput(output=output_data, show=True, type="question_added"),
         )
-        return tool_output
+        return f"Question '{question_text}' added successfully to form"
 
     except Exception as e:
-        tool_output = f"❌ Error adding question to form: {str(e)}"
+        tool_output = f"Error adding question to form: {str(e)}"
         log_tool_event(
             tool_name="add_form_question",
             status="failed",
@@ -364,7 +388,7 @@ def get_form(form_id: str, config: RunnableConfig = None):
     )
 
     if not forms_data.data:
-        tool_output = "❌ Google Forms account is not connected."
+        tool_output = "Google Forms account is not connected."
         return tool_output
 
     data = forms_data.data[0]
@@ -390,32 +414,39 @@ def get_form(form_id: str, config: RunnableConfig = None):
         description = info.get('description', '')
         responder_uri = form.get('responderUri', '')
         
-        tool_output = f"""
-📋 Form: {title}
-🆔 Form ID: {form_id}
-🔗 URL: {responder_uri}
-{f'📝 Description: {description}' if description else ''}
-
-Questions:
-"""
-        
+        # Build questions list
+        questions = []
         items = form.get('items', [])
         for idx, item in enumerate(items, 1):
             if 'questionItem' in item:
                 q_title = item.get('title', 'Untitled Question')
-                tool_output += f"{idx}. {q_title}\n"
+                questions.append({
+                    "number": idx,
+                    "text": q_title
+                })
+        
+        output_data = {
+            "title": title,
+            "form_id": form_id,
+            "form_url": responder_uri,
+            "description": description if description else None,
+            "questions": questions,
+            "total_questions": len(questions)
+        }
 
         log_tool_event(
             tool_name="get_form",
             status="success",
             params={"form_id": form_id},
             parent_node="forms_agent_node",
-            tool_output=ToolOutput(output=tool_output, show=True, type="format"),
+            tool_output=ToolOutput(output=output_data, show=True, type="form_details"),
         )
-        return tool_output
+        
+        # Return user-friendly text for agent
+        return f"Form: {title}\nURL: {responder_uri}\nQuestions: {len(questions)}"
 
     except Exception as e:
-        tool_output = f"❌ Error retrieving form: {str(e)}"
+        tool_output = f"Error retrieving form: {str(e)}"
         log_tool_event(
             tool_name="get_form",
             status="failed",
@@ -450,7 +481,7 @@ def get_form_responses(form_id: str, max_results: Optional[int] = None, config: 
     )
 
     if not forms_data.data:
-        tool_output = "❌ Google Forms account is not connected."
+        tool_output = "Google Forms account is not connected."
         return tool_output
 
     data = forms_data.data[0]
@@ -473,34 +504,49 @@ def get_form_responses(form_id: str, max_results: Optional[int] = None, config: 
         
         response_list = responses.get('responses', [])
         
-        if not response_list:
-            tool_output = f"📊 No responses found for form {form_id}"
-        else:
-            if max_results:
-                response_list = response_list[:max_results]
+        if max_results:
+            response_list = response_list[:max_results]
+        
+        # Build structured response data
+        formatted_responses = []
+        for idx, response in enumerate(response_list, 1):
+            response_data = {
+                "response_number": idx,
+                "response_id": response.get('responseId', ''),
+                "answers": []
+            }
             
-            tool_output = f"📊 Found {len(response_list)} response(s):\n\n"
+            answers = response.get('answers', {})
+            for question_id, answer in answers.items():
+                text_answers = answer.get('textAnswers', {}).get('answers', [])
+                if text_answers:
+                    response_data["answers"].append({
+                        "question_id": question_id,
+                        "value": text_answers[0].get('value', '')
+                    })
             
-            for idx, response in enumerate(response_list, 1):
-                tool_output += f"Response {idx}:\n"
-                answers = response.get('answers', {})
-                for question_id, answer in answers.items():
-                    text_answers = answer.get('textAnswers', {}).get('answers', [])
-                    if text_answers:
-                        tool_output += f"  - {text_answers[0].get('value', '')}\n"
-                tool_output += "\n"
+            formatted_responses.append(response_data)
+        
+        output_data = {
+            "form_id": form_id,
+            "total_responses": len(response_list),
+            "responses": formatted_responses
+        }
 
         log_tool_event(
             tool_name="get_form_responses",
             status="success",
             params={"form_id": form_id},
             parent_node="forms_agent_node",
-            tool_output=ToolOutput(output=tool_output, show=True, type="format"),
+            tool_output=ToolOutput(output=output_data, show=True, type="form_responses"),
         )
-        return tool_output
+        
+        if len(response_list) == 0:
+            return f"No responses found for form {form_id}"
+        return f"Found {len(response_list)} response(s) for form"
 
     except Exception as e:
-        tool_output = f"❌ Error retrieving form responses: {str(e)}"
+        tool_output = f"Error retrieving form responses: {str(e)}"
         log_tool_event(
             tool_name="get_form_responses",
             status="failed",
@@ -535,7 +581,7 @@ def list_forms(query: Optional[str] = None, max_results: int = 10, config: Runna
     )
 
     if not forms_data.data:
-        tool_output = "❌ Google Forms account is not connected."
+        tool_output = "Google Forms account is not connected."
         return tool_output
 
     data = forms_data.data[0]
@@ -567,28 +613,36 @@ def list_forms(query: Optional[str] = None, max_results: int = 10, config: Runna
         
         files = results.get('files', [])
         
-        if not files:
-            tool_output = "📋 No forms found in your Google Drive."
-        else:
-            tool_output = f"📋 Found {len(files)} form(s):\n\n"
-            for file in files:
-                tool_output += f"📝 {file['name']}\n"
-                tool_output += f"   ID: {file['id']}\n"
-                tool_output += f"   URL: {file.get('webViewLink', 'N/A')}\n"
-                tool_output += f"   Created: {file.get('createdTime', 'Unknown')}\n"
-                tool_output += f"   Modified: {file.get('modifiedTime', 'Unknown')}\n\n"
+        # Build structured forms list
+        forms_list = []
+        for file in files:
+            forms_list.append({
+                "name": file['name'],
+                "form_id": file['id'],
+                "form_url": file.get('webViewLink', 'N/A'),
+                "created": file.get('createdTime', 'Unknown'),
+                "modified": file.get('modifiedTime', 'Unknown')
+            })
+        
+        output_data = {
+            "total_forms": len(files),
+            "forms": forms_list
+        }
 
         log_tool_event(
             tool_name="list_forms",
             status="success",
             params={"query": query, "max_results": max_results},
             parent_node="forms_agent_node",
-            tool_output=ToolOutput(output=tool_output, show=True, type="format"),
+            tool_output=ToolOutput(output=output_data, show=True, type="forms_list"),
         )
-        return tool_output
+        
+        if len(files) == 0:
+            return "No forms found in your Google Drive"
+        return f"Found {len(files)} form(s) in your Google Drive"
 
     except Exception as e:
-        tool_output = f"❌ Error listing forms: {str(e)}"
+        tool_output = f"Error listing forms: {str(e)}"
         log_tool_event(
             tool_name="list_forms",
             status="failed",
