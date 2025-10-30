@@ -11,6 +11,7 @@ from langgraph.types import Command
 
 from chatagent.utils import print_stream_debug, print_automation_trace_entries
 from chatagent.db.database import Database
+from chatagent.db.automation_trace_db import AutomationTraceDB
 from chatagent.db.serialization import Serialization
 from chatagent.model.chat_agent_model import StreamChunk
 from chatagent.custom_graph import embedding_model
@@ -19,6 +20,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 rich = Console()
 db = Database()
+automation_trace_db = AutomationTraceDB()
 
 chat_agent_router = APIRouter(
     prefix="/chatagent/chat",
@@ -237,6 +239,8 @@ async def send_message_stream(
         session_llm_calls = 0
         
         last_trace_len = 0
+        current_automation_trace = []  # Track the complete trace for this session
+        
         async for chunk in graph.astream(state, thread_cfg, stream_mode=["messages", "updates", "custom"]):
             if await request.is_disconnected():
                 break
@@ -309,6 +313,19 @@ async def send_message_stream(
                     if new_entries:
                         print_automation_trace_entries(new_entries)
                         last_trace_len = len(trace)
+                        # Update the current trace and save to database
+                        current_automation_trace = trace
+                        try:
+                            trace_id = await automation_trace_db.upsert_trace_by_thread(
+                                user_id=provider_id,
+                                provider_id=provider_id,
+                                thread_id=chat_id,
+                                trace_data=current_automation_trace,
+                                name=None  # Can be set later by user
+                            )
+                            print(f"✅ Automation trace updated in DB: {trace_id}")
+                        except Exception as e:
+                            print(f"⚠️ Failed to save automation trace: {e}")
             except BaseException:
                 pass
 

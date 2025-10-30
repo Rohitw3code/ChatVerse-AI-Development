@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from chatagent.chat_agent_router import chat_agent_router
+from chatagent.automation_trace_router import automation_trace_router
 from chatagent.custom_graph import graph_builder
 from chatagent.db.database_manager import DatabaseManager
 import os
@@ -76,6 +77,7 @@ app.add_middleware(
 )
 
 app.include_router(chat_agent_router)
+app.include_router(automation_trace_router)
 
 @app.get("/")
 async def root():
