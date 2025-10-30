@@ -15,24 +15,19 @@ from chatagent.agents.gdoc.gdoc_models import (
     GDocCreateInput,
     GDocAppendTextInput,
     GDocInsertTextInput,
-    GDocFormatTextInput,
     GDocReadInput,
     GDocListDocsInput,
     GDocDeleteTextInput,
     GDocReplaceTextInput,
-    GDocBulletListInput,
 )
 from chatagent.agents.gdoc.gdoc_api import (
     create_document,
     append_text,
     insert_text,
-    format_text,
     read_document,
     list_documents,
     delete_text,
     replace_text,
-    apply_bullet_list,
-    apply_numbered_list,
 )
 
 
@@ -136,39 +131,6 @@ async def insert_gdoc_text(document_id: str, text: str, index: int, config: Runn
     tool_output = ToolOutput(output=data, show=True, type="format")
     log_tool_event(
         tool_name="insert_gdoc_text",
-        status="success" if "error" not in data else "failed",
-        params={"document_id": document_id},
-        parent_node="gdoc_agent_node",
-        tool_output=tool_output,
-    )
-    return tool_output
-
-
-@tool("style_gdoc_text", args_schema=GDocFormatTextInput)
-async def style_gdoc_text(document_id: str, start_index: int, end_index: int, bold=None, italic=None, 
-                          underline=None, font_size=None, font_family=None, text_color_red=None, 
-                          text_color_green=None, text_color_blue=None, heading_level=None, 
-                          alignment=None, config: RunnableConfig = None):
-    """
-    Applies all text styling (bold, italic, underline, font, color, heading, alignment) to specific text range in Google Doc using native API.
-    Capabilities: bold, italic, underline, font size, font family, RGB color (0.0-1.0), heading styles (1-4), alignment (START/CENTER/END/JUSTIFIED).
-    Use for any text styling. Examples: "make bold red", "Arial 14 centered", "Heading 1 blue italic". All formatting applied natively, not markdown.
-    """
-    user_id = get_user_id(config)
-    log_tool_event(
-        tool_name="style_gdoc_text",
-        status="started",
-        params={"document_id": document_id, "start": start_index, "end": end_index},
-        parent_node="gdoc_agent_node",
-    )
-
-    # Apply all styling through a single consolidated call
-    data = await format_text(user_id, document_id, start_index, end_index, bold, italic, underline, 
-                            font_size, font_family, text_color_red, text_color_green, text_color_blue, 
-                            heading_level, alignment)
-    tool_output = ToolOutput(output=data, show=True, type="format")
-    log_tool_event(
-        tool_name="style_gdoc_text",
         status="success" if "error" not in data else "failed",
         params={"document_id": document_id},
         parent_node="gdoc_agent_node",
@@ -281,37 +243,6 @@ async def replace_gdoc_text(document_id: str, find_text: str, replace_text: str,
     return tool_output
 
 
-@tool("apply_gdoc_list", args_schema=GDocBulletListInput)
-async def apply_gdoc_list(document_id: str, start_index: int, end_index: int, list_type: str = "bullet", config: RunnableConfig = None):
-    """
-    Applies list formatting (bullet or numbered) to text range in Google Doc using native API list styles.
-    Capabilities: bullet lists, numbered lists, ordered/unordered lists. List types: "bullet" or "numbered".
-    Use for any list formatting. Examples: "make bullet list", "add numbering", "create ordered list". Native Google Docs lists, not markdown.
-    """
-    user_id = get_user_id(config)
-    log_tool_event(
-        tool_name="apply_gdoc_list",
-        status="started",
-        params={"document_id": document_id, "start": start_index, "end": end_index, "list_type": list_type},
-        parent_node="gdoc_agent_node",
-    )
-
-    if list_type == "numbered":
-        data = await apply_numbered_list(user_id, document_id, start_index, end_index)
-    else:
-        data = await apply_bullet_list(user_id, document_id, start_index, end_index)
-    
-    tool_output = ToolOutput(output=data, show=True, type="format")
-    log_tool_event(
-        tool_name="apply_gdoc_list",
-        status="success" if "error" not in data else "failed",
-        params={"document_id": document_id},
-        parent_node="gdoc_agent_node",
-        tool_output=tool_output,
-    )
-    return tool_output
-
-
 def get_gdoc_tool_registry() -> NodeRegistry:
     """Return a NodeRegistry of all Google Docs tools."""
     reg = NodeRegistry()
@@ -320,10 +251,8 @@ def get_gdoc_tool_registry() -> NodeRegistry:
     reg.add("create_gdoc_document", create_gdoc_document, "tool")
     reg.add("append_gdoc_text", append_gdoc_text, "tool")
     reg.add("insert_gdoc_text", insert_gdoc_text, "tool")
-    reg.add("style_gdoc_text", style_gdoc_text, "tool")
     reg.add("read_gdoc_document", read_gdoc_document, "tool")
     reg.add("list_gdoc_documents", list_gdoc_documents, "tool")
     reg.add("delete_gdoc_text", delete_gdoc_text, "tool")
     reg.add("replace_gdoc_text", replace_gdoc_text, "tool")
-    reg.add("apply_gdoc_list", apply_gdoc_list, "tool")
     return reg

@@ -158,13 +158,108 @@ def messages_to_chat_history(messages):
 
 
 def usages(callback_handler):
-    return {
+    # Try to get usage from callback first (this should work for OpenAI models)
+    callback_data = {
         "total_cost": callback_handler.total_cost,
         "successful_requests": callback_handler.successful_requests,
+        "prompt_tokens": callback_handler.prompt_tokens,
         "completion_tokens": callback_handler.completion_tokens,
+        "total_tokens": callback_handler.total_tokens,
         "reasoning_tokens": callback_handler.reasoning_tokens,
         "prompt_tokens_cached": callback_handler.prompt_tokens_cached,
     }
+    
+    # If callback data is empty, check if there's a custom usage dict passed
+    if hasattr(callback_handler, 'custom_usage') and callback_handler.custom_usage:
+        # If callback didn't capture anything, use custom usage
+        if callback_data["total_tokens"] == 0 and callback_data["total_cost"] == 0:
+            callback_data.update(callback_handler.custom_usage)
+        else:
+            # Add custom usage to existing callback data
+            for key, value in callback_handler.custom_usage.items():
+                if isinstance(value, (int, float)) and key in callback_data:
+                    callback_data[key] += value
+                elif key not in callback_data:
+                    callback_data[key] = value
+    
+    return callback_data
+
+def extract_usage_from_response(response):
+    """Extract usage information from LLM response when callback doesn't work"""
+    usage_data = {
+        "total_cost": 0.0,
+        "successful_requests": 1,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "reasoning_tokens": 0,
+        "prompt_tokens_cached": 0,
+    }
+    
+    # Try to get usage from response_metadata.token_usage (newer format)
+    if hasattr(response, 'response_metadata') and response.response_metadata:
+        metadata = response.response_metadata
+        if 'token_usage' in metadata:
+            usage = metadata['token_usage']
+            usage_data.update({
+                "prompt_tokens": usage.get('prompt_tokens', 0),
+                "completion_tokens": usage.get('completion_tokens', 0),
+                "total_tokens": usage.get('total_tokens', 0),
+            })
+            # Extract reasoning tokens if available
+            if 'completion_tokens_details' in usage:
+                details = usage['completion_tokens_details']
+                usage_data["reasoning_tokens"] = details.get('reasoning_tokens', 0)
+            if 'prompt_tokens_details' in usage:
+                details = usage['prompt_tokens_details']
+                usage_data["prompt_tokens_cached"] = details.get('cached_tokens', 0)
+    
+    # Try to get usage from usage_metadata (newer LangChain versions)
+    if hasattr(response, 'usage_metadata') and response.usage_metadata:
+        usage = response.usage_metadata
+        usage_data.update({
+            "prompt_tokens": usage.get('input_tokens', 0),
+            "completion_tokens": usage.get('output_tokens', 0),
+            "total_tokens": usage.get('total_tokens', 0),
+        })
+        # Extract reasoning tokens from output details
+        if hasattr(usage, 'output_token_details'):
+            details = usage['output_token_details']
+            usage_data["reasoning_tokens"] = details.get('reasoning', 0)
+        if hasattr(usage, 'input_token_details'):
+            details = usage['input_token_details']
+            usage_data["prompt_tokens_cached"] = details.get('cache_read', 0)
+    
+    # Estimate cost for gpt-4o-mini (roughly $0.00015 per 1K prompt tokens, $0.0006 per 1K completion tokens)
+    if usage_data["prompt_tokens"] > 0 or usage_data["completion_tokens"] > 0:
+        prompt_cost = (usage_data["prompt_tokens"] / 1000) * 0.00015
+        completion_cost = (usage_data["completion_tokens"] / 1000) * 0.0006
+        usage_data["total_cost"] = prompt_cost + completion_cost
+    
+    return usage_data
+
+def create_enhanced_callback():
+    """Create a callback handler that can track custom usage data"""
+    from langchain_community.callbacks.openai_info import OpenAICallbackHandler
+    
+    class EnhancedCallback(OpenAICallbackHandler):
+        def __init__(self):
+            super().__init__()
+            self.custom_usage = {}
+            
+        def add_usage_data(self, usage_data):
+            """Add custom usage data to the callback"""
+            if not self.custom_usage:
+                self.custom_usage = usage_data.copy()
+            else:
+                # Accumulate the data
+                for key, value in usage_data.items():
+                    if isinstance(value, (int, float)):
+                        self.custom_usage[key] = self.custom_usage.get(key, 0) + value
+                    else:
+                        self.custom_usage[key] = value
+    
+    return EnhancedCallback()
 
 
 def _to_params_dict(p):

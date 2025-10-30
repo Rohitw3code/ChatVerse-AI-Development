@@ -230,6 +230,12 @@ async def send_message_stream(
             state = Command(resume=message)
 
         print("state input => ", state)
+        
+        # Session tracking variables
+        session_total_cost = 0.0
+        session_total_tokens = 0
+        session_llm_calls = 0
+        
         async for chunk in graph.astream(state, thread_cfg, stream_mode=["messages", "updates", "custom"]):
             if await request.is_disconnected():
                 break
@@ -324,9 +330,19 @@ async def send_message_stream(
             except Exception as e:
                 print("⚠️ => Failed to save stream chunk:", e)
 
-        
+            # Track session totals for meaningful usage
+            if sc.total_token > 0 or sc.total_cost > 0:
+                session_total_cost += sc.total_cost
+                session_total_tokens += sc.total_token
+                session_llm_calls += 1
 
-            print("increment usage : ", sc.total_cost, sc.total_token, provider_id)
+            # Only show cost tracking for nodes that actually used tokens
+            if sc.total_token > 0 or sc.total_cost > 0:
+                print(f"\n💰 [TOKEN USAGE] {sc.node}:")
+                print(f"   • Cost: ${sc.total_cost:.6f}")
+                print(f"   • Tokens: {sc.total_token} (prompt: {sc.usage.get('prompt_tokens', 0)}, completion: {sc.usage.get('completion_tokens', 0)})")
+                print(f"   • Action: {sc.reason or 'Processing'}")
+                print()
 
             print("Inserted ID : ", inserted_id)
 
@@ -342,6 +358,15 @@ async def send_message_stream(
             payload = Serialization.safe_json_dumps(sc.model_dump(mode="python"))
 
             yield f"event: delta\ndata: {payload}\n\n"
+        
+        # Session summary at the end
+        if session_llm_calls > 0:
+            print(f"\n🎯 [SESSION SUMMARY]")
+            print(f"   • Total Cost: ${session_total_cost:.6f}")
+            print(f"   • Total Tokens: {session_total_tokens}")
+            print(f"   • LLM Calls: {session_llm_calls}")
+            print(f"   • Provider: {provider_id}")
+            print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
     return StreamingResponse(
         event_gen(),

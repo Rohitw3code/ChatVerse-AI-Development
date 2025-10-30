@@ -332,14 +332,25 @@ def write_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], v
         ).execute()
 
         updated_cells = result.get('updatedCells', 0)
-        tool_output = f"✅ Successfully updated {updated_cells} cells in range {range_name}"
+        updated_range = result.get('updatedRange', range_name)
+        
+        # Create JSON output with written data
+        tool_output = {
+            "status": "success",
+            "message": f"Successfully updated {updated_cells} cells",
+            "spreadsheet_id": spreadsheet_id,
+            "range": updated_range,
+            "data_written": values,
+            "total_cells": updated_cells,
+            "value_input_option": value_input_option
+        }
 
         log_tool_event(
             tool_name="write_sheet_data",
             status="success",
             params={"spreadsheet_id": spreadsheet_id, "range_name": range_name},
             parent_node="sheets_agent_node",
-            tool_output=ToolOutput(output=tool_output, show=True),
+            tool_output=ToolOutput(output=tool_output, show=True, type="spreadsheet_write"),
         )
         return tool_output
 
@@ -410,15 +421,27 @@ def append_sheet_data(spreadsheet_id: str, range_name: str, values: List[List], 
             body=body
         ).execute()
 
-        updated_cells = result.get('updates', {}).get('updatedCells', 0)
-        tool_output = f"✅ Successfully appended {updated_cells} cells to {range_name}"
+        updates = result.get('updates', {})
+        updated_cells = updates.get('updatedCells', 0)
+        updated_range = updates.get('updatedRange', range_name)
+        
+        # Create JSON output with appended data
+        tool_output = {
+            "status": "success",
+            "message": f"Successfully appended {updated_cells} cells",
+            "spreadsheet_id": spreadsheet_id,
+            "range": updated_range,
+            "data_written": values,
+            "total_cells": updated_cells,
+            "value_input_option": value_input_option
+        }
 
         log_tool_event(
             tool_name="append_sheet_data",
             status="success",
             params={"spreadsheet_id": spreadsheet_id, "range_name": range_name},
             parent_node="sheets_agent_node",
-            tool_output=ToolOutput(output=tool_output, show=True),
+            tool_output=ToolOutput(output=tool_output, show=True, type="spreadsheet_write"),
         )
         return tool_output
 

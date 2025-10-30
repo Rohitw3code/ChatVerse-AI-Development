@@ -127,7 +127,7 @@ class StreamChunk(BaseModel):
             tool_output=node_data.get("tool_output") or ToolOutput().to_dict(),
             usage=usage,
             status=status,
-            total_token=usage.get("completion_tokens", 0) if isinstance(usage, dict) else 0,
+            total_token=usage.get("total_tokens", 0) if isinstance(usage, dict) else 0,
             total_cost=usage.get("total_cost", 0.0) if isinstance(usage, dict) else 0.0,
             data=node_data.get('data', {}),
         )
