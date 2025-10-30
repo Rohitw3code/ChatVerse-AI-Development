@@ -1,0 +1,14 @@
+{
+    "web": {
+        "client_id": "935446624167-40jckgtberk2dcpoh241r26nedgi9eql.apps.googleusercontent.com",
+        "project_id": "chatverse-dev-476319",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_secret": "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",
+        "redirect_uris": [
+            "http://127.0.0.1:8000/auth/google-forms/login",
+            "http://127.0.0.1:8000/auth/google-forms/oauth2callback"
+        ]
+    }
+}

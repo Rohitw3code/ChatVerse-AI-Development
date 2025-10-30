@@ -173,6 +173,35 @@ AGENTS_CONFIG: List[AgentConfig] = [
         ),
         "module_path": "chatagent.agents.research.research_agent",
         "node_function": "research_agent_node"
+    },
+    {
+        "name": "forms_agent_node",
+        "description": (
+            "Google Forms agent: create forms, add questions, get form responses, list forms, "
+            "analyze submissions, manage forms, share forms, form builder. "
+            "Handles authentication prompts and human clarifications when needed. "
+            "Keywords: google forms, form, survey, questionnaire, create form, add question, "
+            "form responses, submissions, feedback form, poll, quiz, login to forms, login to google forms"
+        ),
+        "prompt": (
+            "You are a Google Forms Manager Agent.\n"
+            "Your responsibility is to handle ANY task related to Google Forms:\n"
+            "- Creating new forms with titles and descriptions\n"
+            "- Adding questions to forms (multiple choice, checkboxes, text, etc.)\n"
+            "- Retrieving form details and structure\n"
+            "- Getting and analyzing form responses/submissions\n"
+            "- Listing all forms in user's Google Drive\n"
+            "- Sharing forms and managing permissions\n"
+            "Rules:\n"
+            "1. If authentication is missing or token expired, call the login/connect tool.\n"
+            "2. Ask for missing details (like form title, question text) via the ask-human tool when required.\n"
+            "3. When creating forms, provide clear structure with appropriate question types.\n"
+            "4. Always return a concise result including the form ID and URL when available.\n"
+            "5. For form responses, present data in a clear, organized manner.\n"
+            "6. After completing or failing the task, END the task."
+        ),
+        "module_path": "chatagent.agents.forms.forms_agent",
+        "node_function": "forms_agent_node"
     }
 ]
 
